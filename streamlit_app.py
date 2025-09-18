@@ -6,8 +6,6 @@ The routing logic is intentionally rule-based so that it can serve as an
 explainable baseline before swapping in real LLM calls.
 """
 
-import io
-import json
 import re
 import time
 from collections.abc import Iterable
