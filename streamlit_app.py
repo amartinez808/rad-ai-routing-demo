@@ -1,5 +1,18 @@
-import time, re, json, io
+"""Streamlit demo for a lightweight routing agent.
+
+The app exposes a simple UI that classifies customer prompts into two lanes: a
+FAST lane for cost-effective answers and a REASONING lane for deeper analysis.
+The routing logic is intentionally rule-based so that it can serve as an
+explainable baseline before swapping in real LLM calls.
+"""
+
+import io
+import json
+import re
+import time
+from collections.abc import Iterable
 from datetime import datetime
+
 import pandas as pd
 import streamlit as st
 
@@ -35,20 +48,65 @@ with colB:
 FAST = "FAST"
 REASONING = "REASONING"
 
+# Keyword bundles and patterns used by the rule-based router. Keeping them in a
+# dedicated block makes future tuning straightforward.
+MATH_PATTERN = re.compile(
+    r"\d+\s*[-+*/^]\s*\d+|integral|derivative|equation|optimi[sz]e|complexity"
+)
+CODE_KEYWORDS = ["stack trace", "exception", "traceback", "python", "sql", "snippet"]
+MULTISTEP_KEYWORDS = ["first", "second", "step", "steps", "plan", "workflow"]
+INVESTIGATION_KEYWORDS = ["why", "root cause", "analysis", "compare", "tradeoff"]
+HIGH_STAKES_KEYWORDS = [
+    "legal",
+    "contract",
+    "security",
+    "privacy",
+    "compliance",
+    "finance",
+]
+
+
+def _contains_keywords(text: str, keywords: Iterable[str]) -> bool:
+    """Return ``True`` if any keyword is contained in ``text``."""
+
+    lower_text = text.lower()
+    return any(keyword in lower_text for keyword in keywords)
+
 def needs_reasoning(text: str) -> bool:
-    text_l = text.lower()
-    # math / analytical signals
-    mathy = bool(re.search(r"\d+\s*[-+*/^]\s*\d+|integral|derivative|equation|optimi[sz]e|complexity", text_l))
-    # code / debugging signals
-    codey = any(k in text_l for k in ["stack trace", "exception", "traceback", "python", "sql", "snippet"])
-    # complexity signals
+    """Return ``True`` when a prompt should be escalated to the reasoning lane.
+
+    Heuristics (tunable):
+    - mathy / analytical language
+    - code or debugging terminology
+    - long or multi-question prompts
+    - multi-step verbs ("first", "second", "workflow", ...)
+    - investigative "why" prompts or comparisons
+    - high-stakes topics (legal, compliance, security, finance)
+    """
+
+    lower_text = text.lower()
+
+    # Signals that hint the user is doing math, analytics, or coding.
+    mathy = bool(MATH_PATTERN.search(lower_text))
+    codey = _contains_keywords(lower_text, CODE_KEYWORDS)
+
+    # Long or multi-part requests are typically more ambiguous and warrant the
+    # deeper lane so that the response can reason step by step.
     long_enough = len(text) > 180 or text.count("?") > 1
-    multi_step  = any(k in text_l for k in ["first", "second", "step", "steps", "plan", "workflow"])
-    investigative = any(k in text_l for k in ["why", "root cause", "analysis", "compare", "tradeoff"])
-    high_stakes = any(k in text_l for k in ["legal", "contract", "security", "privacy", "compliance", "finance"])
-    return long_enough or mathy or codey or multi_step or investigative or high_stakes
+    multi_step = _contains_keywords(lower_text, MULTISTEP_KEYWORDS)
+
+    # "Why" questions, comparisons, and high-stakes situations (legal, privacy,
+    # finance...) benefit from slower, more deliberate answers.
+    investigative = _contains_keywords(lower_text, INVESTIGATION_KEYWORDS)
+    high_stakes = _contains_keywords(lower_text, HIGH_STAKES_KEYWORDS)
+
+    return any(
+        [long_enough, mathy, codey, multi_step, investigative, high_stakes]
+    )
 
 def choose_route(text: str, mode: str) -> str:
+    """Compute the final routing lane after honoring manual overrides."""
+
     if mode == "Force FAST":
         return FAST
     if mode == "Force REASONING":
@@ -57,17 +115,25 @@ def choose_route(text: str, mode: str) -> str:
     return REASONING if needs_reasoning(text) else FAST
 
 def mock_fast_answer(text: str) -> str:
-    return ("Here’s a quick, helpful reply (FAST lane). "
-            "I’ve summarized your request and next steps to keep response time low. "
-            "If you need deeper investigation, escalate to the REASONING lane.")
+    """Return a canned response representing a quick, low-latency answer."""
+
+    return (
+        "Here’s a quick, helpful reply (FAST lane). "
+        "I’ve summarized your request and next steps to keep response time low. "
+        "If you need deeper investigation, escalate to the REASONING lane."
+    )
 
 def mock_reasoning_answer(text: str) -> str:
-    return ("Deep-dive analysis (REASONING lane):\n"
-            "1) Interpreting the request and constraints\n"
-            "2) Laying out assumptions and edge cases\n"
-            "3) Proposing a structured resolution plan\n"
-            "4) Risks & follow-ups\n"
-            "→ This lane trades latency for depth & accuracy.")
+    """Return a canned response representing a deeper, step-by-step answer."""
+
+    return (
+        "Deep-dive analysis (REASONING lane):\n"
+        "1) Interpreting the request and constraints\n"
+        "2) Laying out assumptions and edge cases\n"
+        "3) Proposing a structured resolution plan\n"
+        "4) Risks & follow-ups\n"
+        "→ This lane trades latency for depth & accuracy."
+    )
 
 # ----------------------------
 # (Optional) LIVE MODE skeleton
@@ -91,9 +157,12 @@ def live_answer(text: str, lane: str) -> str:
 # Logging helpers
 # ----------------------------
 if "logs" not in st.session_state:
+    # Maintain a simple in-memory audit trail for the current Streamlit session.
     st.session_state.logs = []
 
 def append_log(prompt_text: str, route: str, tokens_est: int):
+    """Append the latest run to the in-memory audit trail."""
+
     st.session_state.logs.append({
         "ts_iso": datetime.utcnow().isoformat(timespec="seconds") + "Z",
         "route": route,
@@ -102,8 +171,12 @@ def append_log(prompt_text: str, route: str, tokens_est: int):
     })
 
 def estimate_tokens(text: str) -> int:
-    # rough token estimation ~ 4 chars per token
-    return max(1, len(text)//4)
+    """Approximate token usage using a four-characters-per-token heuristic."""
+
+    # The value is intentionally rounded down so that the estimate remains
+    # conservative and easy to reason about. In production you may want to swap
+    # this for a tokenizer call.
+    return max(1, len(text) // 4)
 
 # ----------------------------
 # Run
@@ -112,6 +185,7 @@ if run_btn:
     if not prompt.strip():
         st.warning("Add a prompt to route.")
     else:
+        # Evaluate the heuristics, render an answer, and log the run.
         route = choose_route(prompt, route_mode)
         tokens = estimate_tokens(prompt)
         with st.spinner(f"Routing to {route} lane…"):
@@ -124,7 +198,7 @@ if run_btn:
         st.success(f"Route: **{route}**  •  est. tokens: ~{tokens}")
         st.write(answer)
         with st.expander("Routing rules & explanation"):
-            st.code(needs_reasoning.__code__.co_consts[0] if needs_reasoning.__code__.co_consts else "Rule-based heuristics", language="text")
+            st.code(needs_reasoning.__doc__ or "Rule-based heuristics", language="text")
             st.markdown("- Long/complex, code/math, multi-step, investigative/why, high-stakes → **REASONING**\n- Otherwise → **FAST**")
 
         append_log(prompt, route, tokens)
@@ -134,6 +208,7 @@ if run_btn:
 # ----------------------------
 st.subheader("Live Logs")
 if st.session_state.logs:
+    # Surface the audit trail so users can download or clear it easily.
     df = pd.DataFrame(st.session_state.logs)
     st.dataframe(df, use_container_width=True)
     csv = df.to_csv(index=False).encode("utf-8")
