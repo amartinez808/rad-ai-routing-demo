@@ -31,8 +31,9 @@ st.markdown(
 @keyframes fade {from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
 .run-card {padding:1rem; border-radius:16px; border:1px solid #cbd5f5; background:linear-gradient(145deg,#f8fafc,#eef2ff); box-shadow:0 8px 20px rgba(59,130,246,.1); color:#0f172a;}
 .run-card strong, .run-card b {color:#0f172a;}
-.run-card p {color:#0f172a;}
-.run-card ul {color:#0f172a;}
+.run-card p, .run-card li {color:#0f172a;}
+.run-card ul {margin-left:1.1rem;}
+.run-card br {line-height:1.6;}
 .stMarkdown h3 {color:#e2e8f0;}
 </style>
 """,
