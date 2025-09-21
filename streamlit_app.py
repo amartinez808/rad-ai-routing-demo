@@ -3,6 +3,7 @@ import time
 import random
 import json
 import textwrap
+import html
 from typing import Optional, Dict, List, Tuple
 
 import requests
@@ -32,7 +33,8 @@ st.markdown(
 .run-card {padding:1rem; border-radius:16px; border:1px solid #cbd5f5; background:linear-gradient(145deg,#f8fafc,#eef2ff); box-shadow:0 8px 20px rgba(59,130,246,.1); color:#0f172a;}
 .run-card strong, .run-card b {color:#0f172a;}
 .run-card p, .run-card li {color:#0f172a;}
-.run-card ul {margin-left:1.1rem;}
+.run-card ul {margin-left:1.1rem; padding-left:0.2rem;}
+.run-card li {margin-bottom:.3rem;}
 .run-card br {line-height:1.6;}
 .stMarkdown h3 {color:#e2e8f0;}
 </style>
@@ -69,6 +71,40 @@ LIVE_CAPABLE = {
     "Together": HAVE_TOGETHER,
     "Gemini": HAVE_GEMINI,
 }
+
+
+def _escape_html(text: str) -> str:
+    """HTML-escape and preserve newlines within our custom cards."""
+
+    escaped = html.escape(text)
+    return escaped.replace("\n", "<br>")
+
+
+def render_simulated_card(provider: str) -> None:
+    """Render the best-pick card with friendly demo copy."""
+
+    html_body = f"""
+    <div class='run-card fade'>
+      <p><strong>Why {provider}?</strong> Balanced signal from the council for your request.</p>
+      <p><strong>Draft answer (simulated)</strong></p>
+      <ul>
+        <li>Problem: founders juggle dozens of LLMs without clear guidance.</li>
+        <li>Solution: RAD AI routes prompts like Kayak surfaces the best flight.</li>
+        <li>Why now: model quality exploded; buyers want outcomes, not model soup.</li>
+        <li>Traction: demo pilots show faster time-to-answer and lower cost.</li>
+        <li>Ask: intros to 3 design partners ready to ship co-branded pilots.</li>
+      </ul>
+    </div>
+    """
+    st.markdown(html_body, unsafe_allow_html=True)
+
+
+def render_live_card(output: str) -> None:
+    """Render live model output inside the branded card."""
+
+    safe = _escape_html(output)
+    html_body = f"<div class='run-card fade'><p>{safe}</p></div>"
+    st.markdown(html_body, unsafe_allow_html=True)
 
 # -------------------------
 # Simulated “council” logic
@@ -254,18 +290,7 @@ if go:
         st.info("Live mode skipped: keys missing or provider not supported. Showing simulated result.")
 
     if demo_mode or not live_possible:
-        faux_answer = textwrap.dedent(
-            f"""
-            **Why {winner_prov}?** Balanced signal from the council for your request.  
-            **Draft answer** (simulated):
-            - Problem: founders juggle dozens of LLMs without clear guidance.  
-            - Solution: RAD AI routes prompts like Kayak surfaces the best flight.  
-            - Why now: model quality exploded; buyers want outcomes, not model soup.  
-            - Traction: demo pilots show faster time-to-answer and lower cost.  
-            - Ask: intros to 3 design partners ready to ship co-branded pilots.
-            """
-        )
-        st.markdown(f"<div class='run-card fade'>{faux_answer}</div>", unsafe_allow_html=True)
+        render_simulated_card(winner_prov)
     else:
         try:
             with st.spinner(f"Running live on {winner_prov}…"):
@@ -273,7 +298,7 @@ if go:
                 result = live_generate(winner_prov, winner_model, prompt, 0.2)
                 latency_ms = (time.perf_counter() - start) * 1000
             st.success(f"Live result in {latency_ms:.0f} ms")
-            st.write(result)
+            render_live_card(result)
         except Exception as exc:  # Graceful failure
             st.error(f"Live call failed: {exc}")
 
