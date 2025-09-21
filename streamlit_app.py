@@ -23,14 +23,26 @@ st.markdown(
 .badge {display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .6rem; border-radius:999px; font-weight:600; font-size:.85rem;}
 .pick {background: #0ea5e9; color:white;}
 .alt {background: #e2e8f0; color:#0f172a;}
-.chip {display:inline-block; padding:.25rem .6rem; background:#f1f5f9; border-radius:999px; font-size:.8rem; margin-right:.35rem; color:#0f172a;}
-.chip-primary {background:#2563eb; color:#f8fafc; box-shadow:0 4px 12px rgba(37, 99, 235, .25);}
+.chip {display:inline-block; padding:.25rem .5rem; background:#f1f5f9; border-radius:999px; font-size:.8rem; margin-right:.35rem;}
 .bubble {background:white; border:1px solid #e5e7eb; border-radius:14px; padding:.6rem .8rem; box-shadow:0 1px 2px rgba(0,0,0,.04);}
-.row {display:flex; gap:.75rem; align-items:flex-start; margin-bottom:.35rem;}
-.avatar {width:38px; height:38px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-weight:700; color:white;}
+.row {display:flex; gap:.75rem; align-items:flex-start;}
+.avatar {width:38px; height:38px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-weight:700; color:white; padding:4px; transition: transform .2s ease;}
+.avatar:hover { transform: translateY(-1px) rotate(-2deg); }
+.logo { width:30px; height:30px; display:block; object-fit:contain; background:white; border-radius:6px; }
 .sm {font-size:.85rem; color:#475569;}
 .fade {animation: fade .5s ease-in-out;}
 @keyframes fade {from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+<style>
+.chip {color:#0f172a;}
+.chip-primary {background:#2563eb; color:#f8fafc; box-shadow:0 4px 12px rgba(37, 99, 235, .25);}
+.row {margin-bottom:.35rem;}
 .run-card {padding:1rem; border-radius:16px; border:1px solid #cbd5f5; background:linear-gradient(145deg,#f8fafc,#eef2ff); box-shadow:0 8px 20px rgba(59,130,246,.1); color:#0f172a;}
 .run-card strong, .run-card b {color:#0f172a;}
 .run-card p, .run-card li {color:#0f172a;}
@@ -44,15 +56,41 @@ st.markdown(
 )
 
 # -------------------------
-# Logos (simple emoji fallbacks)
+# Brand icons
 # -------------------------
-AVATARS = {
-    "OpenAI": {"emoji": "🟣", "bg": "#6d28d9"},
-    "Gemini": {"emoji": "🔷", "bg": "#2563eb"},
-    "Llama": {"emoji": "🦙", "bg": "#16a34a"},
-    "Together": {"emoji": "🤝", "bg": "#0ea5e9"},
-    "Groq": {"emoji": "⚡", "bg": "#ef4444"},
+ICONS = {
+    "OpenAI": {
+        "src": "https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg",
+        "bg": "#6d28d9",
+    },
+    "Gemini": {
+        "src": "https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg",
+        "bg": "#2563eb",
+    },
+    "Groq": {
+        "src": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg",
+        "bg": "#ef4444",
+    },
+    "Llama": {
+        "src": "https://custom.typingmind.com/tools/model-icons/llama/llama.svg",
+        "bg": "#16a34a",
+    },
+    "Together": {
+        "src": "https://custom.typingmind.com/tools/model-icons/together/together.svg",
+        "bg": "#0ea5e9",
+    },
 }
+
+
+def logo_img_html(provider: str) -> str:
+    icon = ICONS.get(provider)
+    if not icon:
+        return '<div class="avatar" style="background:#64748b">💬</div>'
+    return f"""
+      <div class="avatar" style="background:{icon['bg']};">
+        <img src="{icon['src']}" alt="{provider} logo" class="logo">
+      </div>
+    """
 
 # -------------------------
 # Secrets helper / Live mode gates
@@ -256,11 +294,10 @@ if go:
 
     st.markdown("#### 🤝 LLM Council")
     for prov, score, quip in council:
-        av = AVATARS.get(prov, {"emoji": "💬", "bg": "#64748b"})
         st.markdown(
             f"""
             <div class="row fade">
-              <div class="avatar" style="background:{av['bg']}">{av['emoji']}</div>
+              {logo_img_html(prov)}
               <div class="bubble">
                 <div><b>{prov}</b> · <span class="sm">score {score}</span></div>
                 <div class="sm">{quip}</div>
@@ -274,8 +311,8 @@ if go:
     st.divider()
 
     st.markdown('<span class="badge pick">Best Pick</span>', unsafe_allow_html=True)
-    av_best = AVATARS.get(winner_prov, {"emoji": "💬"})
-    st.markdown(f"### {av_best['emoji']} {winner_prov} · **{winner_model}**")
+    st.markdown(f"### {winner_prov} · **{winner_model}**")
+    st.markdown(logo_img_html(winner_prov), unsafe_allow_html=True)
 
     feature_chips = ["Speed", "Reasoning", "Budget-friendly"]
     st.markdown(
@@ -308,10 +345,8 @@ if go:
     cols = st.columns(len(alts)) if alts else []
     for idx, (prov, _score, quip) in enumerate(alts):
         with cols[idx]:
-            st.markdown(
-                f'<span class="badge alt">{AVATARS.get(prov, {"emoji": "💬"})["emoji"]} {prov}</span>',
-                unsafe_allow_html=True,
-            )
+            st.markdown(f'<span class="badge alt">{prov}</span>', unsafe_allow_html=True)
+            st.markdown(logo_img_html(prov), unsafe_allow_html=True)
             st.caption(quip)
             if st.button(f"Preview {prov}", key=f"alt-{prov}"):
                 preview = textwrap.dedent(
@@ -333,3 +368,4 @@ st.write("- 🆓 Groq: `GROQ_API_KEY` (dev tier)")
 st.write("- 🆓 Together: `TOGETHER_API_KEY` (llama-3.3-70b free endpoint)")
 st.write("- 🆓 Gemini: `GEMINI_API_KEY` (free tier)")
 st.caption("Simulated Mode requires no keys. Live Mode only runs if a key exists for the chosen provider.")
+st.caption("Logos © their respective owners; used here for product identification in a demo UI.")
