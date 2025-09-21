@@ -29,7 +29,11 @@ st.markdown(
 .sm {font-size:.85rem; color:#475569;}
 .fade {animation: fade .5s ease-in-out;}
 @keyframes fade {from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
-.run-card {padding:1rem; border-radius:16px; border:1px solid #cbd5f5; background:linear-gradient(145deg,#f8fafc,#eef2ff); box-shadow:0 8px 20px rgba(59,130,246,.1);} 
+.run-card {padding:1rem; border-radius:16px; border:1px solid #cbd5f5; background:linear-gradient(145deg,#f8fafc,#eef2ff); box-shadow:0 8px 20px rgba(59,130,246,.1); color:#0f172a;}
+.run-card strong, .run-card b {color:#0f172a;}
+.run-card p {color:#0f172a;}
+.run-card ul {color:#0f172a;}
+.stMarkdown h3 {color:#e2e8f0;}
 </style>
 """,
     unsafe_allow_html=True,
