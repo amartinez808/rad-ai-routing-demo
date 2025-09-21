@@ -9,6 +9,13 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
+### Enable LIVE mode (optional)
+- Add an OpenAI API key to `.streamlit/secrets.toml` on Streamlit Cloud (or `export OPENAI_API_KEY=...` locally).
+- Optional overrides:
+  - `LIVE_MODE=true` to start with live models enabled.
+  - `FAST_MODEL_ID` / `REASONING_MODEL_ID` if you want to swap the default `gpt-4o-mini` / `gpt-4o` pairing.
+- The sidebar toggle lets you switch between mock responses and live calls at runtime.
+
 ## Deploy to itsradai.com
 
 The repo now includes a production-ready Docker stack (`Dockerfile`, `docker-compose.yml`, `deployment/nginx.conf`) so you can serve the Streamlit app from `https://itsradai.com`.

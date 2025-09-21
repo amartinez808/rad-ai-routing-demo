@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Any, Dict, List
@@ -13,11 +14,22 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import streamlit.components.v1 as components
 
+try:  # optional OpenAI import for live mode
+    from openai import OpenAI
+    from openai import OpenAIError
+except ImportError:  # pragma: no cover - allow running without SDK
+    OpenAI = None  # type: ignore
+
+    class OpenAIError(Exception):  # type: ignore
+        """Fallback OpenAI exception type when SDK missing."""
+
+
+logger = logging.getLogger(__name__)
+
 FAST = "FAST"
 REASONING = "REASONING"
-FAST_MODEL = "mock-fast-lane"
-REASONING_MODEL = "mock-reasoner-x"
-LIVE_MODE = False
+MOCK_FAST_MODEL = "mock-fast-lane"
+MOCK_REASONING_MODEL = "mock-reasoner-x"
 
 COLORS = {
     "primary": "#7C3AED",
@@ -29,9 +41,38 @@ COLORS = {
     "subtle": "#94A3B8",
 }
 
-TRACK_METRICS = {
-    FAST: {"cost": 0.0002, "latency": 220, "depth": 0.45, "model": FAST_MODEL},
-    REASONING: {"cost": 0.0014, "latency": 720, "depth": 0.92, "model": REASONING_MODEL},
+BASE_TRACK_METRICS = {
+    FAST: {
+        "cost": 0.0002,
+        "latency": 220,
+        "depth": 0.45,
+        "model": MOCK_FAST_MODEL,
+        "pricing": {"input": 0.00015, "output": 0.0006},
+    },
+    REASONING: {
+        "cost": 0.0014,
+        "latency": 720,
+        "depth": 0.92,
+        "model": MOCK_REASONING_MODEL,
+        "pricing": {"input": 0.0009, "output": 0.0025},
+    },
+}
+
+LIVE_TRACK_METRICS = {
+    FAST: {
+        "cost": 0.0004,
+        "latency": 650,
+        "depth": 0.62,
+        "model": "gpt-4o-mini",
+        "pricing": {"input": 0.00015, "output": 0.0006},
+    },
+    REASONING: {
+        "cost": 0.0075,
+        "latency": 1500,
+        "depth": 0.95,
+        "model": "gpt-4o",
+        "pricing": {"input": 0.005, "output": 0.015},
+    },
 }
 
 MODEL_INFO = {
@@ -68,6 +109,58 @@ EXTREME_KEYWORDS = {"bleeding heavily", "not breathing", "chest pain", "overdose
 PROGRESS_STEPS = ["Scoring", "Selecting track", "Generating", "Summarizing", "Logging"]
 
 st.set_page_config(page_title="RAD AI – Routing Agent", page_icon="🤖", layout="wide")
+
+
+def get_track_metrics() -> Dict[str, Dict[str, Any]]:
+    """Return the active track metrics for the current session."""
+
+    metrics = st.session_state.get("track_metrics")
+    if metrics is None:
+        return BASE_TRACK_METRICS
+    return metrics
+
+
+def update_track_metrics(live: bool) -> None:
+    """Copy track metrics into session state, applying live overrides when needed."""
+
+    source = LIVE_TRACK_METRICS if live else BASE_TRACK_METRICS
+    metrics_copy = {lane: dict(values) for lane, values in source.items()}
+    if live:
+        fast_override = st.secrets.get("FAST_MODEL_ID")
+        reasoning_override = st.secrets.get("REASONING_MODEL_ID")
+        if fast_override:
+            metrics_copy[FAST]["model"] = fast_override
+        if reasoning_override:
+            metrics_copy[REASONING]["model"] = reasoning_override
+    st.session_state.track_metrics = metrics_copy
+
+
+def is_live_mode() -> bool:
+    """Return whether LIVE mode is toggled on for this session."""
+
+    return bool(st.session_state.get("live_mode", False))
+
+
+def get_openai_client() -> OpenAI | None:
+    """Create (or reuse) an OpenAI client if credentials are configured."""
+
+    if OpenAI is None:
+        return None
+
+    if "openai_client" in st.session_state:
+        return st.session_state.openai_client
+
+    api_key = st.secrets.get("OPENAI_API_KEY")
+    if not api_key:
+        return None
+
+    client_kwargs: Dict[str, Any] = {"api_key": api_key}
+    base_url = st.secrets.get("OPENAI_BASE_URL")
+    if base_url:
+        client_kwargs["base_url"] = base_url
+
+    st.session_state.openai_client = OpenAI(**client_kwargs)
+    return st.session_state.openai_client
 
 
 def inject_css() -> None:
@@ -162,6 +255,19 @@ def build_summary_points(decision: Dict[str, Any]) -> List[str]:
     ]
 
 
+def build_mock_answer(lane: str) -> str:
+    """Return the mocked answer text for a given routing lane."""
+
+    if lane == FAST:
+        return (
+            "FAST lane response: concise next steps sent. "
+            "We’ll confirm the resolution and keep costs low."
+        )
+    return (
+        "REASONING lane response: detailed plan drafted with risks, mitigation, and follow-ups."
+    )
+
+
 def route_request(
     message: str,
     stakes: str,
@@ -172,6 +278,7 @@ def route_request(
 
     lowered = message.lower()
     sensitive, extreme = detect_sensitive_flags(message)
+    metrics_map = get_track_metrics()
 
     tokens_in = estimate_tokens(message)
     reasons: List[str] = []
@@ -227,23 +334,12 @@ def route_request(
         elif track == REASONING and "High stakes" not in " ".join(reasons):
             reasons.append("Depth-first reasoning selected for richer guidance")
 
-    metrics = TRACK_METRICS[track]
+    metrics = metrics_map[track]
     latency_ms = metrics["latency"] + (60 if risk_score > 0.6 else 0)
     cost_usd = round(metrics["cost"] * (1.15 if risk_score > 0.6 else 1.0), 5)
     tokens_out = max(1, int(tokens_in * (1.35 if track == REASONING else 0.85)))
 
-    if LIVE_MODE:
-        answer_text = "[LIVE MODE placeholder until API integration]"
-    else:
-        if track == FAST:
-            answer_text = (
-                "FAST lane response: concise next steps sent. "
-                "We’ll confirm the resolution and keep costs low."
-            )
-        else:
-            answer_text = (
-                "REASONING lane response: detailed plan drafted with risks, mitigation, and follow-ups."
-            )
+    answer_text = build_mock_answer(track)
 
     decision: Dict[str, Any] = {
         "track": track,
@@ -265,18 +361,99 @@ def route_request(
         "stakes": stakes,
         "mode": mode,
         "comparison": {
-            FAST: TRACK_METRICS[FAST],
-            REASONING: TRACK_METRICS[REASONING],
+            FAST: metrics_map[FAST],
+            REASONING: metrics_map[REASONING],
         },
     }
     decision["summary_points"] = build_summary_points(decision)
     return decision
 
 
+def live_answer(message: str, lane: str, expected_type: str) -> Dict[str, Any]:
+    """Call the configured LLM provider to generate a live answer."""
+
+    client = get_openai_client()
+    if client is None:
+        raise RuntimeError("LIVE mode requires an OPENAI_API_KEY secret.")
+
+    metrics = get_track_metrics()[lane]
+    model_name = metrics["model"]
+    tone = (
+        "Be concise, deterministic, and focus on immediate resolution." if lane == FAST else
+        "Deliver a structured, risk-aware plan with clear steps and caveats."
+    )
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are RAD AI's routing agent (lane: "
+                f"{lane}). Respond in the tone described and tailor the answer to a {expected_type.lower()} output. "
+                "Reference safety or compliance considerations when relevant."
+            ),
+        },
+        {"role": "user", "content": message},
+    ]
+
+    response = client.chat.completions.create(
+        model=model_name,
+        temperature=0.2 if lane == FAST else 0.15,
+        messages=messages,
+    )
+
+    choice = response.choices[0]
+    answer_text = (choice.message.content or "").strip()
+    usage = getattr(response, "usage", None)
+    tokens_in = getattr(usage, "prompt_tokens", None) or estimate_tokens(message)
+    tokens_out = getattr(usage, "completion_tokens", None) or estimate_tokens(answer_text)
+    pricing = metrics.get("pricing", {})
+    cost_usd = (
+        (tokens_in / 1000) * pricing.get("input", 0.0)
+        + (tokens_out / 1000) * pricing.get("output", 0.0)
+    )
+
+    return {
+        "answer": answer_text or build_mock_answer(lane),
+        "model": model_name,
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+        "cost_usd": round(cost_usd, 6),
+    }
+
+
+def get_response(message: str, lane: str, expected_type: str) -> Dict[str, Any]:
+    """Return answer payload, using LIVE mode when available."""
+
+    metrics = get_track_metrics()[lane]
+    if is_live_mode():
+        try:
+            payload = live_answer(message, lane, expected_type)
+            payload.setdefault("model", metrics["model"])
+            return payload
+        except (OpenAIError, RuntimeError) as exc:  # pragma: no cover - runtime path
+            logger.warning("Live model call failed; falling back to mock. Error: %s", exc)
+            return {
+                "answer": build_mock_answer(lane),
+                "model": metrics["model"],
+                "tokens_in": estimate_tokens(message),
+                "tokens_out": estimate_tokens(build_mock_answer(lane)),
+                "cost_usd": round(metrics["cost"], 6),
+                "notes": f"Live model fallback: {exc}",
+            }
+
+    return {
+        "answer": build_mock_answer(lane),
+        "model": metrics["model"],
+        "tokens_in": estimate_tokens(message),
+        "tokens_out": estimate_tokens(build_mock_answer(lane)),
+        "cost_usd": round(metrics["cost"], 6),
+    }
+
+
 def render_route_card(decision: Dict[str, Any]) -> None:
     """Render the central routing explanation card and supporting details."""
 
     track = decision["track"]
+    metrics_map = get_track_metrics()
     badge_color = COLORS["success"] if track == FAST else COLORS["warn"]
     if track == REASONING and decision["risk_score"] >= 0.65:
         badge_color = COLORS["danger"]
@@ -324,14 +501,14 @@ def render_route_card(decision: Dict[str, Any]) -> None:
 
         categories = ["Cost", "Latency", "Depth"]
         fast_vals = [
-            TRACK_METRICS[FAST]["cost"],
-            TRACK_METRICS[FAST]["latency"],
-            TRACK_METRICS[FAST]["depth"],
+            metrics_map[FAST]["cost"],
+            metrics_map[FAST]["latency"],
+            metrics_map[FAST]["depth"],
         ]
         reasoning_vals = [
-            TRACK_METRICS[REASONING]["cost"],
-            TRACK_METRICS[REASONING]["latency"],
-            TRACK_METRICS[REASONING]["depth"],
+            metrics_map[REASONING]["cost"],
+            metrics_map[REASONING]["latency"],
+            metrics_map[REASONING]["depth"],
         ]
 
         fig, ax = plt.subplots(figsize=(4, 2.8))
@@ -376,9 +553,10 @@ def render_route_card(decision: Dict[str, Any]) -> None:
 def render_model_cards(selected_track: str) -> None:
     """Render comparison cards for the FAST and REASONING lanes."""
 
+    metrics_map = get_track_metrics()
     for track in (FAST, REASONING):
         info = MODEL_INFO[track]
-        metrics = TRACK_METRICS[track]
+        metrics = metrics_map[track]
         classes = "model-card selected" if track == selected_track else "model-card"
         strengths_markup = "".join(f"<li>{item}</li>" for item in info["strengths"])
         weaknesses_markup = "".join(f"<li>{item}</li>" for item in info["weaknesses"])
@@ -407,9 +585,21 @@ def render_model_cards(selected_track: str) -> None:
 
     st.markdown("**FAST vs REASONING**")
     comparison_rows = [
-        {"Metric": "Cost", "FAST": "$0.0002", "REASONING": "$0.0014"},
-        {"Metric": "Speed", "FAST": "~220 ms", "REASONING": "~720 ms"},
-        {"Metric": "Depth", "FAST": "Transactional", "REASONING": "Analytical"},
+        {
+            "Metric": "Cost",
+            "FAST": f"${metrics_map[FAST]['cost']:.4f}",
+            "REASONING": f"${metrics_map[REASONING]['cost']:.4f}",
+        },
+        {
+            "Metric": "Speed",
+            "FAST": f"~{int(metrics_map[FAST]['latency'])} ms",
+            "REASONING": f"~{int(metrics_map[REASONING]['latency'])} ms",
+        },
+        {
+            "Metric": "Depth",
+            "FAST": "Transactional",
+            "REASONING": "Analytical",
+        },
     ]
     st.dataframe(comparison_rows, use_container_width=True, hide_index=True)
 
@@ -503,6 +693,10 @@ def ensure_state_initialized() -> None:
     st.session_state.decision = None
     st.session_state.is_running = False
     st.session_state.scroll_to_input = False
+    live_secret = str(st.secrets.get("LIVE_MODE", "false")).lower()
+    api_key_available = bool(st.secrets.get("OPENAI_API_KEY"))
+    st.session_state.live_mode = api_key_available and live_secret in {"1", "true", "yes", "on"}
+    update_track_metrics(st.session_state.live_mode)
     st.session_state.initialized = True
 
 
@@ -514,6 +708,26 @@ def main() -> None:
     cases = load_canned_cases()
     st.session_state.cases = cases
 
+    api_key_available = bool(st.secrets.get("OPENAI_API_KEY"))
+    with st.sidebar:
+        st.subheader("Run configuration")
+        if api_key_available:
+            live_toggle = st.toggle(
+                "Use LIVE models",
+                value=st.session_state.live_mode,
+                key="live_mode_toggle",
+                help="Requires OPENAI_API_KEY in Streamlit secrets",
+            )
+            if live_toggle != st.session_state.live_mode:
+                st.session_state.live_mode = live_toggle
+                update_track_metrics(live_toggle)
+        else:
+            st.info("Add OPENAI_API_KEY to secrets to enable live LLM responses.")
+            if st.session_state.live_mode:
+                st.session_state.live_mode = False
+                update_track_metrics(False)
+        st.caption("FAST lane ≈ low-cost triage, REASONING lane ≈ depth & risk coverage.")
+
     st.markdown(
         """
         <div class="rad-header">
@@ -524,6 +738,16 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     st.caption("Investor showcase: route every customer message to the smartest, safest lane — complete with transparent decisioning and audit trail.")
+    if is_live_mode():
+        st.markdown(
+            f"<p style='color:{COLORS['success']}; font-size:0.85rem;'>LIVE mode active — responses generated by {get_track_metrics()[FAST]['model']} / {get_track_metrics()[REASONING]['model']}.</p>",
+            unsafe_allow_html=True,
+        )
+    elif not api_key_available:
+        st.markdown(
+            f"<p style='color:{COLORS['subtle']}; font-size:0.85rem;'>LIVE mode locked — add an OPENAI_API_KEY in Streamlit secrets to enable real model calls.</p>",
+            unsafe_allow_html=True,
+        )
 
     with st.expander("What this demo shows"):
         st.markdown(
@@ -636,6 +860,28 @@ def main() -> None:
 
                 if decision is None:
                     decision = route_request(message, stakes, expected, mode)
+
+                response_started = time.perf_counter()
+                response_payload = get_response(message, decision["track"], expected)
+                latency_ms = max(1, int((time.perf_counter() - response_started) * 1000))
+
+                decision["answer"] = response_payload["answer"]
+                decision["model"] = response_payload["model"]
+                decision["tokens_out"] = response_payload["tokens_out"]
+                decision["cost_usd"] = response_payload["cost_usd"]
+                decision["latency_ms"] = latency_ms
+
+                tokens_in_actual = response_payload.get("tokens_in")
+                if tokens_in_actual:
+                    decision["tokens_in"] = tokens_in_actual
+
+                note = response_payload.get("notes")
+                if note:
+                    decision["citations"].append(note)
+                elif is_live_mode():
+                    decision["citations"].append("Live model invocation (OpenAI)")
+
+                decision["summary_points"] = build_summary_points(decision)
 
                 log_entry = {
                     "ts_iso": datetime.utcnow().isoformat(timespec="seconds") + "Z",
