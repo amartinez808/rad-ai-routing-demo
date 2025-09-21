@@ -110,18 +110,28 @@ def load_canned_cases() -> Dict[str, Dict[str, str]]:
     return {
         "Refund request": {
             "message": "Hi team, I was billed twice on invoice #4432. Please refund the duplicate charge and confirm when the credit lands.",
+            "stakes": "Standard",
+            "expected": "Answer",
         },
         "Kid swallowed penny": {
             "message": "My kid swallowed a penny and I'm worried it's stuck. She's breathing but says her stomach hurts. What should I do?",
+            "stakes": "High",
+            "expected": "Step-by-step",
         },
         "Travel reschedule": {
             "message": "My flight tomorrow was canceled. Please rebook me for the earliest flight to Boston and keep the aisle seat if possible.",
+            "stakes": "Standard",
+            "expected": "Action plan",
         },
         "Small-Biz lead qual": {
             "message": "We’re a 12-person marketing agency evaluating AI tools. What plan fits under $500/month and supports team reporting?",
+            "stakes": "Low",
+            "expected": "Summary",
         },
         "Outage incident update": {
             "message": "Our production API has been down for 23 minutes. Customers are escalating. Need a coordinated status update with mitigation steps.",
+            "stakes": "High",
+            "expected": "Action plan",
         },
     }
 
@@ -530,9 +540,14 @@ def main() -> None:
         def on_scenario_change() -> None:
             selected = st.session_state.scenario
             if selected != "Custom prompt" and selected in st.session_state.cases:
-                st.session_state.message = st.session_state.cases[selected]["message"]
+                scenario = st.session_state.cases[selected]
+                st.session_state.message = scenario["message"]
+                st.session_state.stakes = scenario.get("stakes", "Standard")
+                st.session_state.expected_output = scenario.get("expected", "Answer")
             elif selected == "Custom prompt":
                 st.session_state.message = ""
+                st.session_state.stakes = "Standard"
+                st.session_state.expected_output = "Answer"
             st.session_state.scroll_to_input = True
 
         st.selectbox(
