@@ -1,14 +1,4 @@
-# Python
+.streamlit/secrets.toml
+.DS_Store
 __pycache__/
 *.pyc
-
-# Virtual envs
-.venv/
-venv/
-
-# Streamlit secrets
-.streamlit/secrets.toml
-
-# Misc
-*.csv
-.DS_Store
