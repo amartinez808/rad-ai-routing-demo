@@ -1,4 +1,5 @@
 import os
+import base64
 import time
 import random
 import json
@@ -55,44 +56,55 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# -------------------------
-# Brand icons
-# -------------------------
-ICONS = {
-    # Using SimpleIcons CDN (reliable, CORS-friendly). Icons are monochrome; we render them white on brand-colored avatar.
-    "OpenAI": {
-        "src": "https://cdn.simpleicons.org/openai/FFFFFF",
-        "bg": "#6d28d9",
-    },
-    "Gemini": {
-        # SimpleIcons slug for Gemini
-        "src": "https://cdn.simpleicons.org/googlegemini/FFFFFF",
-        "bg": "#2563eb",
-    },
-    "Groq": {
-        "src": "https://cdn.simpleicons.org/groq/FFFFFF",
-        "bg": "#ef4444",
-    },
-    "Llama": {
-        # Use Meta icon to represent Llama family
-        "src": "https://cdn.simpleicons.org/meta/FFFFFF",
-        "bg": "#16a34a",
-    },
-    # Together might not exist on SimpleIcons; leave out so it falls back to text avatar automatically.
+# --- Logo handling: local -> cached web -> emoji fallback ---
+ICON_SOURCES = {
+    "OpenAI":  {"url": "https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg",  "local": "assets/openai.svg",   "bg": "#6d28d9"},
+    "Gemini":  {"url": "https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg", "local": "assets/gemini.svg",  "bg": "#2563eb"},
+    "Groq":    {"url": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg",         "local": "assets/groq.svg",    "bg": "#ef4444"},
+    "Llama":   {"url": "https://custom.typingmind.com/tools/model-icons/llama/llama.svg",            "local": "assets/llama.svg",   "bg": "#16a34a"},
+    "Together":{"url": "https://custom.typingmind.com/tools/model-icons/together/together.svg",       "local": "assets/together.svg","bg": "#0ea5e9"},
 }
 
+@st.cache_data(show_spinner=False)
+def _fetch_logo_data(provider: str) -> str:
+    """Return data URI for the provider logo; prefer local, then remote, else empty."""
+    meta = ICON_SOURCES.get(provider)
+    if not meta:
+        return ""
+    # 1) Local file
+    lp = meta.get("local")
+    if lp and os.path.exists(lp):
+        with open(lp, "rb") as f:
+            b = f.read()
+        mime = "image/svg+xml" if lp.lower().endswith(".svg") else "image/png"
+        return f"data:{mime};base64,{base64.b64encode(b).decode()}"
+    # 2) Remote fetch (cached)
+    url = meta.get("url")
+    if url:
+        try:
+            r = requests.get(url, timeout=10)
+            r.raise_for_status()
+            content_type = r.headers.get("Content-Type", "image/svg+xml")
+            if "svg" not in content_type:
+                content_type = "image/svg+xml"
+            return f"data:{content_type};base64,{base64.b64encode(r.content).decode()}"
+        except Exception:
+            pass
+    # 3) Fallback
+    return ""
 
-def logo_img_html(provider: str) -> str:
-    icon = ICONS.get(provider)
-    if not icon:
-        # Text initial fallback to avoid broken image icons
-        initial = (provider or '?')[:1].upper()
-        return f'<div class="avatar" style="background:#64748b">{initial}</div>'
-    return f"""
-      <div class="avatar" style="background:{icon['bg']};">
-        <img src="{icon['src']}" alt="{provider} logo" class="logo" />
+def logo_img_html(provider: str, size: int = 30) -> str:
+    meta = ICON_SOURCES.get(provider, {})
+    bg = meta.get("bg", "#64748b")
+    data_uri = _fetch_logo_data(provider)
+    if not data_uri:
+        return f'<div class="avatar" style="background:{bg}">💬</div>'
+    return f'''
+      <div class="avatar" style="background:{bg}; padding:4px;">
+        <img src="{data_uri}" alt="{provider} logo"
+             class="logo" style="width:{size}px;height:{size}px;display:block;object-fit:contain;background:white;border-radius:6px;">
       </div>
-    """
+    '''
 
 # -------------------------
 # Secrets helper / Live mode gates
