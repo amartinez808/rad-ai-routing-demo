@@ -23,7 +23,8 @@ st.markdown(
 .badge {display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .6rem; border-radius:999px; font-weight:600; font-size:.85rem;}
 .pick {background: #0ea5e9; color:white;}
 .alt {background: #e2e8f0; color:#0f172a;}
-.chip {display:inline-block; padding:.25rem .5rem; background:#f1f5f9; border-radius:999px; font-size:.8rem; margin-right:.35rem;}
+.chip {display:inline-block; padding:.25rem .6rem; background:#f1f5f9; border-radius:999px; font-size:.8rem; margin-right:.35rem; color:#0f172a;}
+.chip-primary {background:#2563eb; color:#f8fafc; box-shadow:0 4px 12px rgba(37, 99, 235, .25);}
 .bubble {background:white; border:1px solid #e5e7eb; border-radius:14px; padding:.6rem .8rem; box-shadow:0 1px 2px rgba(0,0,0,.04);}
 .row {display:flex; gap:.75rem; align-items:flex-start; margin-bottom:.35rem;}
 .avatar {width:38px; height:38px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-weight:700; color:white;}
@@ -278,7 +279,7 @@ if go:
 
     feature_chips = ["Speed", "Reasoning", "Budget-friendly"]
     st.markdown(
-        "".join([f'<span class="chip">{c}</span>' for c in feature_chips]),
+        "".join([f'<span class="chip chip-primary">{c}</span>' for c in feature_chips]),
         unsafe_allow_html=True,
     )
 
