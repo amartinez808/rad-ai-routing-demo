@@ -59,36 +59,38 @@ st.markdown(
 # Brand icons
 # -------------------------
 ICONS = {
+    # Using SimpleIcons CDN (reliable, CORS-friendly). Icons are monochrome; we render them white on brand-colored avatar.
     "OpenAI": {
-        "src": "https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg",
+        "src": "https://cdn.simpleicons.org/openai/FFFFFF",
         "bg": "#6d28d9",
     },
     "Gemini": {
-        "src": "https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg",
+        # SimpleIcons slug for Gemini
+        "src": "https://cdn.simpleicons.org/googlegemini/FFFFFF",
         "bg": "#2563eb",
     },
     "Groq": {
-        "src": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg",
+        "src": "https://cdn.simpleicons.org/groq/FFFFFF",
         "bg": "#ef4444",
     },
     "Llama": {
-        "src": "https://custom.typingmind.com/tools/model-icons/llama/llama.svg",
+        # Use Meta icon to represent Llama family
+        "src": "https://cdn.simpleicons.org/meta/FFFFFF",
         "bg": "#16a34a",
     },
-    "Together": {
-        "src": "https://custom.typingmind.com/tools/model-icons/together/together.svg",
-        "bg": "#0ea5e9",
-    },
+    # Together might not exist on SimpleIcons; leave out so it falls back to text avatar automatically.
 }
 
 
 def logo_img_html(provider: str) -> str:
     icon = ICONS.get(provider)
     if not icon:
-        return '<div class="avatar" style="background:#64748b">💬</div>'
+        # Text initial fallback to avoid broken image icons
+        initial = (provider or '?')[:1].upper()
+        return f'<div class="avatar" style="background:#64748b">{initial}</div>'
     return f"""
       <div class="avatar" style="background:{icon['bg']};">
-        <img src="{icon['src']}" alt="{provider} logo" class="logo">
+        <img src="{icon['src']}" alt="{provider} logo" class="logo" />
       </div>
     """
 
