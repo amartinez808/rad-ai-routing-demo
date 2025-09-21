@@ -535,13 +535,15 @@ def main() -> None:
                 st.session_state.message = ""
             st.session_state.scroll_to_input = True
 
+        st.selectbox(
+            "Scenario",
+            options=["Custom prompt", *cases.keys()],
+            key="scenario",
+            on_change=on_scenario_change,
+            disabled=st.session_state.is_running,
+        )
+
         with st.form("routing-form"):
-            st.selectbox(
-                "Scenario",
-                options=["Custom prompt", *cases.keys()],
-                key="scenario",
-                on_change=on_scenario_change,
-            )
             st.text_area(
                 "Customer message",
                 key="message",
