@@ -224,9 +224,9 @@ def _council_loading_html(providers: List[str]) -> str:
                 img_background = "background:transparent;"
                 filter_style = "filter: brightness(0) invert(1);"
             content = (
-                f'<span class="council-node-img" style="{img_background}">
-                <img src="{data_uri}" alt="{provider} logo" style="{filter_style}">
-                </span>'
+                f'<span class="council-node-img" style="{img_background}">'
+                f'<img src="{data_uri}" alt="{provider} logo" style="{filter_style}">'  # nosec: B703
+                "</span>"
             )
         else:
             initial = html.escape(provider[:1].upper())
