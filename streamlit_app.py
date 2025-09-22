@@ -337,7 +337,7 @@ if go:
               </div>
             </div>
             """
-        )
+        ).strip()
         st.markdown(html_row, unsafe_allow_html=True)
         time.sleep(0.12)
 
