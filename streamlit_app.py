@@ -52,11 +52,11 @@ st.markdown(
 
 # ---- Real logos: local -> download/cache -> upload fallback ----
 LOGO_MAP = {
-    "OpenAI":  {"filename": "openai.png",   "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg"],  "bg": "#6d28d9"},
-    "Gemini":  {"filename": "gemini.png",   "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg"], "bg": "#2563eb"},
-    "Groq":    {"filename": "groq.png",     "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
-    "Llama":   {"filename": "llama.jpg",    "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
-    "Together":{"filename": "together.png", "urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
+    "OpenAI":  {"filename": "openai",   "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg"],  "bg": "#6d28d9"},
+    "Gemini":  {"filename": "gemini",   "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg"], "bg": "#2563eb"},
+    "Groq":    {"filename": "groq",     "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
+    "Llama":   {"filename": "llama",    "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
+    "Together":{"filename": "together", "urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
 }
 
 def _mime_for_extension(ext: str) -> str:
@@ -76,6 +76,33 @@ def _encode_bytes(data: bytes, mime: str) -> str:
     return f"data:{mime};base64," + base64.b64encode(data).decode()
 
 
+def _filename_with_ext(base: str, content_type: str) -> str:
+    sanitized_base = base.rsplit(".", 1)[0]
+    lowered = (content_type or "").lower()
+    if "svg" in lowered:
+        return f"{sanitized_base}.svg"
+    if "png" in lowered:
+        return f"{sanitized_base}.png"
+    if "jpeg" in lowered or "jpg" in lowered:
+        return f"{sanitized_base}.jpg"
+    if "webp" in lowered:
+        return f"{sanitized_base}.webp"
+    return f"{sanitized_base}.png"
+
+
+def _detect_logo_format(data: bytes) -> Optional[Tuple[str, str]]:
+    stripped = data.lstrip()
+    if stripped.startswith(b"<svg"):
+        return "image/svg+xml", ".svg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png", ".png"
+    if data.startswith(b"\xff\xd8"):
+        return "image/jpeg", ".jpg"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp", ".webp"
+    return None
+
+
 @st.cache_data(show_spinner=False)
 def _load_logo_data(provider: str) -> str:
     """Return a data URI for the provider logo. Tries local file, then first good download URL."""
@@ -84,23 +111,57 @@ def _load_logo_data(provider: str) -> str:
     if not meta:
         return ""
 
-    fp = ASSETS_DIR / meta["filename"]
+    base_name = meta["filename"]
+    preferred_path = ASSETS_DIR / base_name
+    candidate: Optional[Path] = None
 
-    if fp.exists():
-        mime = _mime_for_extension(fp.suffix)
-        return _encode_bytes(fp.read_bytes(), mime)
+    if preferred_path.exists() and preferred_path.is_file():
+        candidate = preferred_path
+    else:
+        for path in sorted(ASSETS_DIR.glob(f"{base_name}.*")):
+            if path.is_file():
+                candidate = path
+                break
+
+    if candidate:
+        try:
+            data = candidate.read_bytes()
+        except Exception:
+            candidate = None
+        else:
+            detected = _detect_logo_format(data)
+            if detected:
+                detected_mime, detected_ext = detected
+                if candidate.suffix.lower() != detected_ext:
+                    corrected_name = ASSETS_DIR / _filename_with_ext(base_name, detected_mime)
+                    try:
+                        corrected_name.write_bytes(data)
+                        try:
+                            candidate.unlink()
+                        except Exception:
+                            pass
+                        candidate = corrected_name
+                    except Exception:
+                        pass
+                return _encode_bytes(data, detected_mime)
+            mime = _mime_for_extension(candidate.suffix)
+            return _encode_bytes(data, mime)
 
     for url in meta.get("urls", []):
         try:
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
-            content_type = resp.headers.get("Content-Type", "image/svg+xml")
-            data_uri = _encode_bytes(resp.content, content_type)
+            raw_type = resp.headers.get("Content-Type") or ""
+            content_type = raw_type.split(";")[0].strip().lower()
+            if not content_type:
+                content_type = "image/png"
+            filename = _filename_with_ext(base_name, content_type)
+            filepath = ASSETS_DIR / filename
             try:
-                fp.write_bytes(resp.content)
+                filepath.write_bytes(resp.content)
             except Exception:
                 pass
-            return data_uri
+            return _encode_bytes(resp.content, content_type)
         except Exception:
             continue
 
@@ -324,18 +385,15 @@ if go:
 
     st.markdown("#### 🤝 LLM Council")
     for prov, score, quip in council:
-        html_row = textwrap.dedent(
-            f"""
-            <div class="row fade">
-              {logo_img_html(prov)}
-              <div class="bubble">
-                <div><b>{prov}</b> · <span class="sm">score {score}</span></div>
-                <div class="sm">{quip}</div>
-              </div>
-            </div>
-            """
-        ).strip()
-        st.markdown(html_row, unsafe_allow_html=True)
+        logo_html = logo_img_html(prov)
+        bubble_html = (
+            f'<div class="bubble">'
+            f'<div><b>{prov}</b> · <span class="sm">score {score}</span></div>'
+            f'<div class="sm">{quip}</div>'
+            f"</div>"
+        )
+        row_html = f'<div class="row fade">{logo_html}{bubble_html}</div>'
+        st.markdown(row_html, unsafe_allow_html=True)
         time.sleep(0.12)
 
     st.divider()
