@@ -45,18 +45,13 @@ st.markdown(
 .run-card li {margin-bottom:.3rem;}
 .run-card br {line-height:1.6;}
 .stMarkdown h3 {color:#e2e8f0;}
-.council-loading {position:relative; width:200px; height:200px; margin:1.6rem auto 1.1rem;}
-.council-loading .council-ring {position:absolute; inset:0; animation:council-spin 10s linear infinite;}
-.council-loading .council-node {position:absolute; top:50%; left:50%; width:64px; height:64px; margin:-32px;}
-.council-loading .council-node-inner {width:100%; height:100%; border-radius:50%; background:var(--bg,#e2e8f0); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 28px rgba(15,23,42,.28);}
-.council-loading .council-node-img {width:74%; height:74%; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(248,250,252,.95); box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);}
-.council-loading .council-node-img img {width:100%; height:100%; object-fit:contain;}
-.council-loading .council-node-initial {font-weight:700; font-size:1.05rem; color:#0f172a;}
-.council-loading .council-core {position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:120px; height:120px; border-radius:50%; background:linear-gradient(145deg,#1f2937,#0f172a); color:#f8fafc; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-shadow:0 16px 34px rgba(15,23,42,.38);}
-.council-loading .council-core strong {font-size:.9rem; letter-spacing:.03em;}
-.council-loading .council-core span {font-size:.75rem; opacity:.85;}
-.council-whisper {text-align:center; color:#cbd5f5; font-size:.85rem; margin-bottom:.35rem;}
-@keyframes council-spin {from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
+.council-loading {display:flex; flex-direction:column; align-items:center; gap:.6rem; margin:1.6rem 0 1rem;}
+.council-loading-row {display:flex; gap:.85rem; align-items:center;}
+.council-orb {width:58px; height:58px; border-radius:999px; display:flex; align-items:center; justify-content:center; background:var(--bg,#1e293b); box-shadow:0 14px 28px rgba(15,23,42,.28); animation:council-bob 1.6s ease-in-out infinite; animation-delay:var(--delay,0s);}
+.council-orb img {width:70%; height:70%; object-fit:contain;}
+.council-orb .fallback {font-weight:700; font-size:1.1rem; color:#f8fafc;}
+.council-whisper {text-align:center; color:#cbd5f5; font-size:.85rem; min-height:1.1rem;}
+@keyframes council-bob {0%,100% {transform:translateY(0);} 50% {transform:translateY(-11px);}}
 </style>
 """,
     unsafe_allow_html=True,
@@ -208,49 +203,37 @@ def _council_loading_html(providers: List[str]) -> str:
     if not providers:
         return ""
 
-    step_deg = 360 / max(len(providers), 1)
-    orbit_radius = -92
-    nodes: List[str] = []
+    orbs: List[str] = []
 
     for idx, provider in enumerate(providers):
-        angle = step_deg * idx
-        node_transform = f"transform: rotate({angle:.2f}deg) translate(0, {orbit_radius}px);"
-        inner_transform = f"transform: rotate({-angle:.2f}deg); --bg: {LOGO_MAP.get(provider, {}).get('bg', '#e2e8f0')};"
+        meta = LOGO_MAP.get(provider, {})
+        bg_color = meta.get("bg", "#1e293b")
         data_uri = _load_logo_data(provider)
+        delay = 0.15 * idx
+        filter_value = "brightness(0) invert(1)" if provider.lower() == "grok" else "none"
+
         if data_uri:
-            filter_style = ""
-            img_background = "background:rgba(248,250,252,.95);"
-            if provider.lower() == "grok":
-                img_background = "background:transparent;"
-                filter_style = "filter: brightness(0) invert(1);"
             content = (
-                f'<span class="council-node-img" style="{img_background}">'
-                f'<img src="{data_uri}" alt="{provider} logo" style="{filter_style}">'  # nosec: B703
-                "</span>"
+                f'<img src="{data_uri}" alt="{provider} logo" style="filter:{filter_value};">'
             )
         else:
             initial = html.escape(provider[:1].upper())
-            content = f'<span class="council-node-initial">{initial}</span>'
+            content = f'<span class="fallback">{initial}</span>'
 
-        nodes.append(
+        orbs.append(
             f"""
-            <div class="council-node" style="{node_transform}">
-              <div class="council-node-inner" style="{inner_transform}">
-                {content}
-              </div>
+            <div class="council-orb" style="--bg:{bg_color}; --delay:{delay:.2f}s">
+              {content}
             </div>
             """
         )
 
     return f"""
     <div class="council-loading fade">
-      <div class="council-ring">
-        {''.join(nodes)}
+      <div class="council-loading-row">
+        {''.join(orbs)}
       </div>
-      <div class="council-core">
-        <strong>Routing…</strong>
-        <span>Council syncing</span>
-      </div>
+      <div class="council-whisper">Council syncing…</div>
     </div>
     """
 
