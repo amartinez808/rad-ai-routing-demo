@@ -124,21 +124,6 @@ def logo_img_html(provider: str, size: int = 30) -> str:
     '''
 
 # Sidebar helper to upload logos if needed
-with st.sidebar:
-    with st.expander("🖼️ Fix logos (if any missing)"):
-        for prov, meta in LOGO_MAP.items():
-            st.caption(f"{prov} logo")
-            uploaded = st.file_uploader(
-                f"Upload {prov} logo",
-                type=["svg", "png"],
-                key=f"up-{prov}",
-                accept_multiple_files=False,
-                label_visibility="collapsed",
-            )
-            if uploaded is not None:
-                data = uploaded.read()
-                (ASSETS_DIR / meta["filename"]).write_bytes(data)
-                st.success(f"{prov} logo saved. Reload the page.")
 
 # -------------------------
 # Secrets helper / Live mode gates
