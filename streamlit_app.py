@@ -6,7 +6,7 @@ import random
 import textwrap
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import requests
 import streamlit as st
@@ -45,6 +45,18 @@ st.markdown(
 .run-card li {margin-bottom:.3rem;}
 .run-card br {line-height:1.6;}
 .stMarkdown h3 {color:#e2e8f0;}
+.council-loading {position:relative; width:200px; height:200px; margin:1.6rem auto 1.1rem;}
+.council-loading .council-ring {position:absolute; inset:0; animation:council-spin 10s linear infinite;}
+.council-loading .council-node {position:absolute; top:50%; left:50%; width:64px; height:64px; margin:-32px;}
+.council-loading .council-node-inner {width:100%; height:100%; border-radius:50%; background:var(--bg,#e2e8f0); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 28px rgba(15,23,42,.28);}
+.council-loading .council-node-img {width:74%; height:74%; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(248,250,252,.95); box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);}
+.council-loading .council-node-img img {width:100%; height:100%; object-fit:contain;}
+.council-loading .council-node-initial {font-weight:700; font-size:1.05rem; color:#0f172a;}
+.council-loading .council-core {position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:120px; height:120px; border-radius:50%; background:linear-gradient(145deg,#1f2937,#0f172a); color:#f8fafc; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-shadow:0 16px 34px rgba(15,23,42,.38);}
+.council-loading .council-core strong {font-size:.9rem; letter-spacing:.03em;}
+.council-loading .council-core span {font-size:.75rem; opacity:.85;}
+.council-whisper {text-align:center; color:#cbd5f5; font-size:.85rem; margin-bottom:.35rem;}
+@keyframes council-spin {from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
 </style>
 """,
     unsafe_allow_html=True,
@@ -190,6 +202,84 @@ def logo_img_html(provider: str, size: int = 30) -> str:
              class="logo" style="width:{size}px;height:{size}px;display:block;object-fit:contain;{img_background}border-radius:6px;{filter_style}">
       </div>
     '''
+
+
+def _council_loading_html(providers: List[str]) -> str:
+    if not providers:
+        return ""
+
+    step_deg = 360 / max(len(providers), 1)
+    orbit_radius = -92
+    nodes: List[str] = []
+
+    for idx, provider in enumerate(providers):
+        angle = step_deg * idx
+        node_transform = f"transform: rotate({angle:.2f}deg) translate(0, {orbit_radius}px);"
+        inner_transform = f"transform: rotate({-angle:.2f}deg); --bg: {LOGO_MAP.get(provider, {}).get('bg', '#e2e8f0')};"
+        data_uri = _load_logo_data(provider)
+        if data_uri:
+            filter_style = ""
+            img_background = "background:rgba(248,250,252,.95);"
+            if provider.lower() == "grok":
+                img_background = "background:transparent;"
+                filter_style = "filter: brightness(0) invert(1);"
+            content = (
+                f'<span class="council-node-img" style="{img_background}">
+                <img src="{data_uri}" alt="{provider} logo" style="{filter_style}">
+                </span>'
+            )
+        else:
+            initial = html.escape(provider[:1].upper())
+            content = f'<span class="council-node-initial">{initial}</span>'
+
+        nodes.append(
+            f"""
+            <div class="council-node" style="{node_transform}">
+              <div class="council-node-inner" style="{inner_transform}">
+                {content}
+              </div>
+            </div>
+            """
+        )
+
+    return f"""
+    <div class="council-loading fade">
+      <div class="council-ring">
+        {''.join(nodes)}
+      </div>
+      <div class="council-core">
+        <strong>Routing…</strong>
+        <span>Council syncing</span>
+      </div>
+    </div>
+    """
+
+
+def render_council_loading(council: List[Tuple[str, float, str]], min_duration: float = 1.8) -> None:
+    if not council:
+        return
+
+    providers = [prov for prov, _score, _quip in council]
+    orbit_placeholder = st.empty()
+    chatter_placeholder = st.empty()
+    start = time.perf_counter()
+    orbit_placeholder.markdown(_council_loading_html(providers), unsafe_allow_html=True)
+
+    for prov, _score, quip in council[:3]:
+        safe_line = html.escape(f"{prov}: {quip}")
+        chatter_placeholder.markdown(
+            f"<div class='council-whisper'>{safe_line}</div>",
+            unsafe_allow_html=True,
+        )
+        time.sleep(0.45)
+
+    elapsed = time.perf_counter() - start
+    remaining = max(0.0, min_duration - elapsed)
+    if remaining:
+        time.sleep(remaining)
+
+    orbit_placeholder.empty()
+    chatter_placeholder.empty()
 
 # Sidebar helper to upload logos if needed
 
@@ -393,9 +483,8 @@ go = st.button("Search all models")
 
 if go:
     st.session_state["alt_preview"] = ""
-    with st.spinner("Gathering the council…"):
-        winner_prov, winner_model, council = heuristic_vote(prompt)
-        time.sleep(0.6)
+    winner_prov, winner_model, council = heuristic_vote(prompt)
+    render_council_loading(council)
 
     st.markdown("#### 🤝 LLM Council")
     for prov, score, quip in council:
