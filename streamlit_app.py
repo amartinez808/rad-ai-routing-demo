@@ -58,28 +58,26 @@ st.markdown(
 
 # --- Logo handling: local -> cached web -> emoji fallback ---
 ICON_SOURCES = {
-    "OpenAI":  {"url": "https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg",  "local": "assets/openai.svg",   "bg": "#6d28d9"},
-    "Gemini":  {"url": "https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg", "local": "assets/gemini.svg",  "bg": "#2563eb"},
-    "Groq":    {"url": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg",         "local": "assets/groq.svg",    "bg": "#ef4444"},
-    "Llama":   {"url": "https://custom.typingmind.com/tools/model-icons/llama/llama.svg",            "local": "assets/llama.svg",   "bg": "#16a34a"},
+    "OpenAI":  {"url": "https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg",  "local": "assets/openai.svg",   "bg": "#6d28d9"},
+    "Gemini":  {"url": "https://upload.wikimedia.org/wikipedia/commons/1/1d/Google_Gemini_icon_2025.svg", "local": "assets/gemini.svg",  "bg": "#2563eb"},
+    "Groq":    {"url": "https://upload.wikimedia.org/wikipedia/commons/8/80/T%C3%A9l%C3%A9char.png",         "local": "assets/groq.svg",    "bg": "#ef4444"},
+    "Llama":   {"url": "https://upload.wikimedia.org/wikipedia/commons/c/c9/A_Representation_of_Meta_AI_and_Llama_%28Meta_AI_Imagine_2025%29.webp",            "local": "assets/llama.svg",   "bg": "#16a34a"},
     "Together":{"url": "https://custom.typingmind.com/tools/model-icons/together/together.svg",       "local": "assets/together.svg","bg": "#0ea5e9"},
 }
 
 @st.cache_data(show_spinner=False)
-def _fetch_logo_data(provider: str) -> str:
-    """Return data URI for the provider logo; prefer local, then remote, else empty."""
-    meta = ICON_SOURCES.get(provider)
-    if not meta:
-        return ""
+def _fetch_logo_data(provider: str, url: str, local_path: str, local_mtime: float) -> str:
+    """Return data URI for the provider logo; prefer local, then remote, else empty.
+
+    Cache key includes URL and local mtime so manual swaps are picked up.
+    """
     # 1) Local file
-    lp = meta.get("local")
-    if lp and os.path.exists(lp):
-        with open(lp, "rb") as f:
+    if local_path and os.path.exists(local_path):
+        with open(local_path, "rb") as f:
             b = f.read()
-        mime = "image/svg+xml" if lp.lower().endswith(".svg") else "image/png"
+        mime = "image/svg+xml" if local_path.lower().endswith(".svg") else "image/png"
         return f"data:{mime};base64,{base64.b64encode(b).decode()}"
     # 2) Remote fetch (cached)
-    url = meta.get("url")
     if url:
         try:
             r = requests.get(url, timeout=10)
@@ -96,7 +94,9 @@ def _fetch_logo_data(provider: str) -> str:
 def logo_img_html(provider: str, size: int = 30) -> str:
     meta = ICON_SOURCES.get(provider, {})
     bg = meta.get("bg", "#64748b")
-    data_uri = _fetch_logo_data(provider)
+    lp = meta.get("local", "") or ""
+    mtime = os.path.getmtime(lp) if lp and os.path.exists(lp) else 0.0
+    data_uri = _fetch_logo_data(provider, meta.get("url", "") or "", lp, mtime)
     if not data_uri:
         return f'<div class="avatar" style="background:{bg}">💬</div>'
     return f'''
