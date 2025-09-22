@@ -5,6 +5,7 @@ import random
 import json
 import textwrap
 import html
+from pathlib import Path
 from typing import Optional, Dict, List, Tuple
 
 import requests
@@ -14,6 +15,9 @@ import streamlit as st
 # App Config
 # =========================
 st.set_page_config(page_title="RAD AI – LLM Metasearch (Kayak Demo)", page_icon="🧭", layout="centered")
+
+ASSETS_DIR = Path("assets")
+ASSETS_DIR.mkdir(exist_ok=True)
 
 # -------------------------
 # Branding / Theme CSS
@@ -29,7 +33,7 @@ st.markdown(
 .row {display:flex; gap:.75rem; align-items:flex-start;}
 .avatar {width:38px; height:38px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-weight:700; color:white; padding:4px; transition: transform .2s ease;}
 .avatar:hover { transform: translateY(-1px) rotate(-2deg); }
-.logo { width:30px; height:30px; display:block; object-fit:contain; background:transparent; border-radius:6px; }
+.logo { width:30px; height:30px; display:block; object-fit:contain; background:white; border-radius:6px; }
 .sm {font-size:.85rem; color:#475569;}
 .fade {animation: fade .5s ease-in-out;}
 @keyframes fade {from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
@@ -56,47 +60,49 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Logo handling: local -> cached web -> emoji fallback ---
-ICON_SOURCES = {
-    "OpenAI":  {"url": "https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_Logo.svg",  "local": "assets/openai.svg",   "bg": "#6d28d9"},
-    "Gemini":  {"url": "https://upload.wikimedia.org/wikipedia/commons/1/1d/Google_Gemini_icon_2025.svg", "local": "assets/gemini.svg",  "bg": "#2563eb"},
-    "Groq":    {"url": "https://upload.wikimedia.org/wikipedia/commons/8/80/T%C3%A9l%C3%A9char.png",         "local": "assets/groq.svg",    "bg": "#ef4444"},
-    "Llama":   {"url": "https://upload.wikimedia.org/wikipedia/commons/c/c9/A_Representation_of_Meta_AI_and_Llama_%28Meta_AI_Imagine_2025%29.webp",            "local": "assets/llama.svg",   "bg": "#16a34a"},
-    "Together":{"url": "https://custom.typingmind.com/tools/model-icons/together/together.svg",       "local": "assets/together.svg","bg": "#0ea5e9"},
+# ---- Real logos: local -> download/cache -> upload fallback ----
+LOGO_MAP = {
+    "OpenAI":  {"filename": "openai.svg",  "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg"],  "bg": "#6d28d9"},
+    "Gemini":  {"filename": "gemini.svg",  "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg"], "bg": "#2563eb"},
+    "Groq":    {"filename": "groq.svg",    "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
+    "Llama":   {"filename": "llama.svg",   "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
+    "Together":{"filename": "together.svg","urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
 }
 
 @st.cache_data(show_spinner=False)
-def _fetch_logo_data(provider: str, url: str, local_path: str, local_mtime: float) -> str:
-    """Return data URI for the provider logo; prefer local, then remote, else empty.
+def _load_logo_data(provider: str) -> str:
+    """Return a data URI for the provider logo. Tries local file, then first good download URL. Empty string if none."""
 
-    Cache key includes URL and local mtime so manual swaps are picked up.
-    """
-    # 1) Local file
-    if local_path and os.path.exists(local_path):
-        with open(local_path, "rb") as f:
-            b = f.read()
-        mime = "image/svg+xml" if local_path.lower().endswith(".svg") else "image/png"
-        return f"data:{mime};base64,{base64.b64encode(b).decode()}"
-    # 2) Remote fetch (cached)
-    if url:
+    meta = LOGO_MAP.get(provider)
+    if not meta:
+        return ""
+
+    fp = ASSETS_DIR / meta["filename"]
+
+    if fp.exists():
+        b = fp.read_bytes()
+        return "data:image/svg+xml;base64," + base64.b64encode(b).decode()
+
+    for url in meta.get("urls", []):
         try:
-            r = requests.get(url, timeout=10)
-            r.raise_for_status()
-            content_type = r.headers.get("Content-Type", "image/svg+xml")
-            if "svg" not in content_type:
-                content_type = "image/svg+xml"
-            return f"data:{content_type};base64,{base64.b64encode(r.content).decode()}"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            b = resp.content
+            try:
+                fp.write_bytes(b)
+            except Exception:
+                pass
+            return "data:image/svg+xml;base64," + base64.b64encode(b).decode()
         except Exception:
-            pass
-    # 3) Fallback
+            continue
+
     return ""
 
+
 def logo_img_html(provider: str, size: int = 30) -> str:
-    meta = ICON_SOURCES.get(provider, {})
+    meta = LOGO_MAP.get(provider, {})
     bg = meta.get("bg", "#64748b")
-    lp = meta.get("local", "") or ""
-    mtime = os.path.getmtime(lp) if lp and os.path.exists(lp) else 0.0
-    data_uri = _fetch_logo_data(provider, meta.get("url", "") or "", lp, mtime)
+    data_uri = _load_logo_data(provider)
     if not data_uri:
         return f'<div class="avatar" style="background:{bg}">💬</div>'
     return f'''
@@ -105,6 +111,23 @@ def logo_img_html(provider: str, size: int = 30) -> str:
              class="logo" style="width:{size}px;height:{size}px;display:block;object-fit:contain;background:white;border-radius:6px;">
       </div>
     '''
+
+# Sidebar helper to upload logos if needed
+with st.sidebar:
+    with st.expander("🖼️ Fix logos (if any missing)"):
+        for prov, meta in LOGO_MAP.items():
+            st.caption(f"{prov} logo")
+            uploaded = st.file_uploader(
+                f"Upload {prov} SVG",
+                type=["svg"],
+                key=f"up-{prov}",
+                accept_multiple_files=False,
+                label_visibility="collapsed",
+            )
+            if uploaded is not None:
+                data = uploaded.read()
+                (ASSETS_DIR / meta["filename"]).write_bytes(data)
+                st.success(f"{prov} logo saved. Reload the page.")
 
 # -------------------------
 # Secrets helper / Live mode gates
