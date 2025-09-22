@@ -212,7 +212,7 @@ def logo_img_html(provider: str, size: int = 30) -> str:
     '''
 
 
-def show_loading_council(models: List[str], seconds: float = 2.0) -> None:
+def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
     """Display an overlay with orbiting provider avatars and quips."""
 
     display_models = [m for m in models if m][:5]
@@ -477,7 +477,7 @@ go = st.button("Search all models")
 if go:
     st.session_state["alt_preview"] = ""
     overlay_models = [prov for prov, _model, _attr in MODELS]
-    overlay_duration = 1.8
+    overlay_duration = 2.4
     overall_start = time.perf_counter()
     with ThreadPoolExecutor(max_workers=1) as executor:
         vote_future = executor.submit(heuristic_vote, prompt)
@@ -485,8 +485,8 @@ if go:
         winner_prov, winner_model, council = vote_future.result()
 
     elapsed = time.perf_counter() - overall_start
-    if elapsed < 1.2:
-        time.sleep(1.2 - elapsed)
+    if elapsed < 1.8:
+        time.sleep(1.8 - elapsed)
 
     st.markdown("#### 🤝 LLM Council")
     for prov, score, quip in council:
