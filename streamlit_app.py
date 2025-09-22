@@ -176,7 +176,7 @@ def logo_img_html(provider: str, size: int = 30) -> str:
         return f'<div class="avatar" style="background:{bg}">💬</div>'
     filter_style = ""
     if provider.lower() == "groq":
-        filter_style = " filter: invert(1);"
+        filter_style = " filter: brightness(0) invert(1);"
     return f'''
       <div class="avatar" style="background:{bg}; padding:4px;">
         <img src="{data_uri}" alt="{provider} logo"
