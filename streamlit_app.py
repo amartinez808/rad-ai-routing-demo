@@ -180,12 +180,14 @@ def logo_img_html(provider: str, size: int = 30) -> str:
     if not data_uri:
         return f'<div class="avatar" style="background:{bg}">💬</div>'
     filter_style = ""
+    img_background = "background:white;"
     if provider.lower() == "grok":
+        img_background = "background:transparent;"
         filter_style = " filter: brightness(0) invert(1);"
     return f'''
       <div class="avatar" style="background:{bg}; padding:4px;">
         <img src="{data_uri}" alt="{provider} logo"
-             class="logo" style="width:{size}px;height:{size}px;display:block;object-fit:contain;background:white;border-radius:6px;{filter_style}">
+             class="logo" style="width:{size}px;height:{size}px;display:block;object-fit:contain;{img_background}border-radius:6px;{filter_style}">
       </div>
     '''
 
