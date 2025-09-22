@@ -29,7 +29,7 @@ st.markdown(
 .row {display:flex; gap:.75rem; align-items:flex-start;}
 .avatar {width:38px; height:38px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-weight:700; color:white; padding:4px; transition: transform .2s ease;}
 .avatar:hover { transform: translateY(-1px) rotate(-2deg); }
-.logo { width:30px; height:30px; display:block; object-fit:contain; background:white; border-radius:6px; }
+.logo { width:30px; height:30px; display:block; object-fit:contain; background:transparent; border-radius:6px; }
 .sm {font-size:.85rem; color:#475569;}
 .fade {animation: fade .5s ease-in-out;}
 @keyframes fade {from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
