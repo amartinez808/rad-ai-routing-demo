@@ -174,10 +174,13 @@ def logo_img_html(provider: str, size: int = 30) -> str:
     data_uri = _load_logo_data(provider)
     if not data_uri:
         return f'<div class="avatar" style="background:{bg}">💬</div>'
+    filter_style = ""
+    if provider.lower() == "groq":
+        filter_style = " filter: invert(1);"
     return f'''
       <div class="avatar" style="background:{bg}; padding:4px;">
         <img src="{data_uri}" alt="{provider} logo"
-             class="logo" style="width:{size}px;height:{size}px;display:block;object-fit:contain;background:white;border-radius:6px;">
+             class="logo" style="width:{size}px;height:{size}px;display:block;object-fit:contain;background:white;border-radius:6px;{filter_style}">
       </div>
     '''
 
