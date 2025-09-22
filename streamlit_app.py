@@ -1,12 +1,12 @@
-import os
 import base64
-import time
-import random
-import json
-import textwrap
 import html
+import json
+import os
+import random
+import textwrap
+import time
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import requests
 import streamlit as st
@@ -26,28 +26,18 @@ st.markdown(
     """
 <style>
 .badge {display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .6rem; border-radius:999px; font-weight:600; font-size:.85rem;}
-.pick {background: #0ea5e9; color:white;}
-.alt {background: #e2e8f0; color:#0f172a;}
-.chip {display:inline-block; padding:.25rem .5rem; background:#f1f5f9; border-radius:999px; font-size:.8rem; margin-right:.35rem;}
+.pick {background:#0ea5e9; color:white;}
+.alt {background:#e2e8f0; color:#0f172a;}
+.chip {display:inline-block; padding:.25rem .5rem; background:#f1f5f9; border-radius:999px; font-size:.8rem; margin-right:.35rem; color:#0f172a;}
+.chip-primary {background:#2563eb; color:#f8fafc; box-shadow:0 4px 12px rgba(37,99,235,.25);} 
+.row {display:flex; gap:.75rem; align-items:flex-start; margin-bottom:.35rem;}
 .bubble {background:white; border:1px solid #e5e7eb; border-radius:14px; padding:.6rem .8rem; box-shadow:0 1px 2px rgba(0,0,0,.04);}
-.row {display:flex; gap:.75rem; align-items:flex-start;}
 .avatar {width:38px; height:38px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-weight:700; color:white; padding:4px; transition: transform .2s ease;}
-.avatar:hover { transform: translateY(-1px) rotate(-2deg); }
-.logo { width:30px; height:30px; display:block; object-fit:contain; background:white; border-radius:6px; }
+.avatar:hover {transform: translateY(-1px) rotate(-2deg);} 
+.logo {width:30px; height:30px; display:block; object-fit:contain; background:white; border-radius:6px;}
 .sm {font-size:.85rem; color:#475569;}
 .fade {animation: fade .5s ease-in-out;}
 @keyframes fade {from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
-</style>
-""",
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    """
-<style>
-.chip {color:#0f172a;}
-.chip-primary {background:#2563eb; color:#f8fafc; box-shadow:0 4px 12px rgba(37, 99, 235, .25);}
-.row {margin-bottom:.35rem;}
 .run-card {padding:1rem; border-radius:16px; border:1px solid #cbd5f5; background:linear-gradient(145deg,#f8fafc,#eef2ff); box-shadow:0 8px 20px rgba(59,130,246,.1); color:#0f172a;}
 .run-card strong, .run-card b {color:#0f172a;}
 .run-card p, .run-card li {color:#0f172a;}
@@ -69,9 +59,26 @@ LOGO_MAP = {
     "Together":{"filename": "together.png", "urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
 }
 
+def _mime_for_extension(ext: str) -> str:
+    ext = ext.lower()
+    if ext == ".svg":
+        return "image/svg+xml"
+    if ext in {".png", ".apng"}:
+        return "image/png"
+    if ext in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if ext == ".webp":
+        return "image/webp"
+    return "image/png"
+
+
+def _encode_bytes(data: bytes, mime: str) -> str:
+    return f"data:{mime};base64," + base64.b64encode(data).decode()
+
+
 @st.cache_data(show_spinner=False)
 def _load_logo_data(provider: str) -> str:
-    """Return a data URI for the provider logo. Tries local file, then first good download URL. Empty string if none."""
+    """Return a data URI for the provider logo. Tries local file, then first good download URL."""
 
     meta = LOGO_MAP.get(provider)
     if not meta:
@@ -80,30 +87,20 @@ def _load_logo_data(provider: str) -> str:
     fp = ASSETS_DIR / meta["filename"]
 
     if fp.exists():
-        b = fp.read_bytes()
-        ext = fp.suffix.lower()
-        if ext == ".svg":
-            mime = "image/svg+xml"
-        elif ext in {".png", ".apng"}:
-            mime = "image/png"
-        elif ext in {".jpg", ".jpeg"}:
-            mime = "image/jpeg"
-        elif ext == ".webp":
-            mime = "image/webp"
-        else:
-            mime = "image/png"
-        return f"data:{mime};base64," + base64.b64encode(b).decode()
+        mime = _mime_for_extension(fp.suffix)
+        return _encode_bytes(fp.read_bytes(), mime)
 
     for url in meta.get("urls", []):
         try:
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
-            b = resp.content
+            content_type = resp.headers.get("Content-Type", "image/svg+xml")
+            data_uri = _encode_bytes(resp.content, content_type)
             try:
-                fp.write_bytes(b)
+                fp.write_bytes(resp.content)
             except Exception:
                 pass
-            return "data:image/svg+xml;base64," + base64.b64encode(b).decode()
+            return data_uri
         except Exception:
             continue
 
