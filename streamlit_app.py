@@ -5,6 +5,7 @@ import os
 import random
 import textwrap
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -45,13 +46,25 @@ st.markdown(
 .run-card li {margin-bottom:.3rem;}
 .run-card br {line-height:1.6;}
 .stMarkdown h3 {color:#e2e8f0;}
-.council-loading {display:flex; flex-direction:column; align-items:center; gap:.6rem; margin:1.6rem 0 1rem;}
-.council-loading-row {display:flex; gap:.85rem; align-items:center;}
-.council-orb {width:58px; height:58px; border-radius:999px; display:flex; align-items:center; justify-content:center; background:var(--bg,#1e293b); box-shadow:0 14px 28px rgba(15,23,42,.28); animation:council-bob 1.6s ease-in-out infinite; animation-delay:var(--delay,0s);}
-.council-orb img {width:70%; height:70%; object-fit:contain;}
-.council-orb .fallback {font-weight:700; font-size:1.1rem; color:#f8fafc;}
-.council-whisper {text-align:center; color:#cbd5f5; font-size:.85rem; min-height:1.1rem;}
-@keyframes council-bob {0%,100% {transform:translateY(0);} 50% {transform:translateY(-11px);}}
+.council-overlay {position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(1200px 600px at 50% -10%, rgba(2,6,23,.28), rgba(2,6,23,.72)); backdrop-filter: blur(2px); z-index: 9999;}
+.council-modal {width: min(520px, 92vw); border-radius: 20px; padding: 24px; background: linear-gradient(145deg, #0b1220, #0e1626); border: 1px solid rgba(148,163,184,.18); box-shadow: 0 16px 40px rgba(0,0,0,.35); color: #e5e7eb; text-align: center;}
+.council-orbit {position: relative; height: 150px; margin: 10px 0 6px;}
+.council-orbit .av {position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);}
+.council-orbit .av img {width: 36px; height: 36px; border-radius: 10px; background:#fff; object-fit: contain; box-shadow: 0 6px 16px rgba(0,0,0,.25); transition: transform .2s ease, box-shadow .2s ease;}
+.council-orbit .fallback {display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:10px; background:#1f2937; color:#e2e8f0; font-weight:700; box-shadow:0 6px 16px rgba(0,0,0,.25);}
+.av.active img {transform: scale(1.18) translateZ(0); box-shadow: 0 10px 22px rgba(14,165,233,.35);}
+.av.p0 {transform: translate(-50%,-50%) translate(0,-52px);}
+.av.p1 {transform: translate(-50%,-50%) translate(46px,-16px);}
+.av.p2 {transform: translate(-50%,-50%) translate(28px,40px);}
+.av.p3 {transform: translate(-50%,-50%) translate(-28px,40px);}
+.av.p4 {transform: translate(-50%,-50%) translate(-46px,-16px);}
+.typing {display:inline-block; letter-spacing:.15em;}
+.typing span {animation: blink 1.2s infinite;}
+.typing span:nth-child(2){ animation-delay:.2s; }
+.typing span:nth-child(3){ animation-delay:.4s; }
+@keyframes blink {0%,20%{ opacity:0;} 50%{opacity:1;} 100%{opacity:0;} }
+.qline {font-size:.95rem; color:#93a4b8; min-height: 24px;}
+.badge-sync {display:inline-flex; gap:.6rem; align-items:center; padding:.35rem .7rem; border-radius:999px; background:#0ea5e933; color:#bae6fd; border:1px solid #38bdf8; font-weight:600; font-size:.9rem; justify-content:center;}
 </style>
 """,
     unsafe_allow_html=True,
@@ -199,70 +212,65 @@ def logo_img_html(provider: str, size: int = 30) -> str:
     '''
 
 
-def _council_loading_html(providers: List[str]) -> str:
-    if not providers:
-        return ""
+def show_loading_council(models: List[str], seconds: float = 2.0) -> None:
+    """Display an overlay with orbiting provider avatars and quips."""
 
-    orbs: List[str] = []
-
-    for idx, provider in enumerate(providers):
-        meta = LOGO_MAP.get(provider, {})
-        bg_color = meta.get("bg", "#1e293b")
-        data_uri = _load_logo_data(provider)
-        delay = 0.15 * idx
-        filter_value = "brightness(0) invert(1)" if provider.lower() == "grok" else "none"
-
-        if data_uri:
-            content = (
-                f'<img src="{data_uri}" alt="{provider} logo" style="filter:{filter_value};">'
-            )
-        else:
-            initial = html.escape(provider[:1].upper())
-            content = f'<span class="fallback">{initial}</span>'
-
-        orbs.append(
-            f"""
-            <div class="council-orb" style="--bg:{bg_color}; --delay:{delay:.2f}s">
-              {content}
-            </div>
-            """
-        )
-
-    return f"""
-    <div class="council-loading fade">
-      <div class="council-loading-row">
-        {''.join(orbs)}
-      </div>
-      <div class="council-whisper">Council syncing…</div>
-    </div>
-    """
-
-
-def render_council_loading(council: List[Tuple[str, float, str]], min_duration: float = 1.8) -> None:
-    if not council:
+    display_models = [m for m in models if m][:5]
+    if not display_models:
         return
 
-    providers = [prov for prov, _score, _quip in council]
-    orbit_placeholder = st.empty()
-    chatter_placeholder = st.empty()
+    placeholder = st.empty()
+    frame_interval = 0.2
     start = time.perf_counter()
-    orbit_placeholder.markdown(_council_loading_html(providers), unsafe_allow_html=True)
+    frame = 0
+    positions = ["p0", "p1", "p2", "p3", "p4"]
 
-    for prov, _score, quip in council[:3]:
-        safe_line = html.escape(f"{prov}: {quip}")
-        chatter_placeholder.markdown(
-            f"<div class='council-whisper'>{safe_line}</div>",
-            unsafe_allow_html=True,
-        )
-        time.sleep(0.45)
+    avatar_markup: List[str] = []
+    for idx, provider in enumerate(display_models):
+        data_uri = _load_logo_data(provider)
+        if data_uri:
+            img_tag = f'<img src="{data_uri}" alt="{provider} logo">'
+        else:
+            initial = html.escape(provider[:1].upper()) or "?"
+            img_tag = f'<div class="fallback">{initial}</div>'
+        avatar_markup.append(img_tag)
 
-    elapsed = time.perf_counter() - start
-    remaining = max(0.0, min_duration - elapsed)
-    if remaining:
-        time.sleep(remaining)
+    quip_cycle = [QUIPS.get(provider, "") for provider in display_models]
+    if not quip_cycle:
+        quip_cycle = [""]
 
-    orbit_placeholder.empty()
-    chatter_placeholder.empty()
+    typing_html = '<span class="typing"><span>.</span><span>.</span><span>.</span></span>'
+
+    try:
+        while time.perf_counter() - start < seconds:
+            active_idx = frame % len(display_models)
+            avatars_html = []
+            for idx, provider in enumerate(display_models):
+                pos_cls = positions[idx]
+                active_cls = " active" if idx == active_idx else ""
+                avatars_html.append(
+                    f'<div class="av {pos_cls}{active_cls}">{avatar_markup[idx]}</div>'
+                )
+
+            quip_text = html.escape(quip_cycle[active_idx]) if quip_cycle[active_idx] else "&nbsp;"
+
+            overlay_html = (
+                '<div class="council-overlay">'
+                '<div class="council-modal">'
+                f'<div class="badge-sync">🧭 Council syncing {typing_html}</div>'
+                '<div class="council-orbit">'
+                + "".join(avatars_html)
+                + '</div>'
+                f'<div class="qline">{quip_text}</div>'
+                '</div>'
+                '</div>'
+            )
+
+            placeholder.markdown(overlay_html, unsafe_allow_html=True)
+            time.sleep(frame_interval)
+            frame += 1
+    finally:
+        placeholder.empty()
 
 # Sidebar helper to upload logos if needed
 
@@ -335,6 +343,15 @@ MODELS = [
 ]
 
 
+QUIPS = {
+    "OpenAI": "I can balance speed and reasoning for a clean final answer.",
+    "Gemini": "I’m fast with webby tasks and structured responses.",
+    "Llama": "Lean and quick—great for short prompts and drafts.",
+    "Together": "Big-brain Llama 70B is solid for deeper takes.",
+    "Grok": "Blazing low latency—let me snap a result together.",
+}
+
+
 # Lightweight heuristic to keep demo deterministic-ish but lively
 
 def heuristic_vote(user_text: str) -> Tuple[str, str, List[Tuple[str, float, str]]]:
@@ -358,14 +375,7 @@ def heuristic_vote(user_text: str) -> Tuple[str, str, List[Tuple[str, float, str
     base.sort(key=lambda x: x[2], reverse=True)
     winner_prov, winner_model, _ = base[0]
 
-    quips = {
-        "OpenAI": "I can balance speed and reasoning for a clean final answer.",
-        "Gemini": "I’m fast with webby tasks and structured responses.",
-        "Llama": "Lean and quick—great for short prompts and drafts.",
-        "Together": "Big-brain Llama 70B is solid for deeper takes.",
-        "Grok": "Blazing low latency—let me snap a result together.",
-    }
-    council = [(p, round(s, 2), quips[p]) for (p, _m, s) in base]
+    council = [(p, round(s, 2), QUIPS[p]) for (p, _m, s) in base]
     return winner_prov, winner_model, council
 
 
@@ -466,8 +476,17 @@ go = st.button("Search all models")
 
 if go:
     st.session_state["alt_preview"] = ""
-    winner_prov, winner_model, council = heuristic_vote(prompt)
-    render_council_loading(council)
+    overlay_models = [prov for prov, _model, _attr in MODELS]
+    overlay_duration = 1.8
+    overall_start = time.perf_counter()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        vote_future = executor.submit(heuristic_vote, prompt)
+        show_loading_council(overlay_models, seconds=overlay_duration)
+        winner_prov, winner_model, council = vote_future.result()
+
+    elapsed = time.perf_counter() - overall_start
+    if elapsed < 1.2:
+        time.sleep(1.2 - elapsed)
 
     st.markdown("#### 🤝 LLM Council")
     for prov, score, quip in council:
