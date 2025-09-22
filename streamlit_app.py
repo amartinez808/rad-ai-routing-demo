@@ -62,11 +62,11 @@ st.markdown(
 
 # ---- Real logos: local -> download/cache -> upload fallback ----
 LOGO_MAP = {
-    "OpenAI":  {"filename": "openai.svg",  "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg"],  "bg": "#6d28d9"},
-    "Gemini":  {"filename": "gemini.svg",  "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg"], "bg": "#2563eb"},
-    "Groq":    {"filename": "groq.svg",    "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
-    "Llama":   {"filename": "llama.svg",   "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
-    "Together":{"filename": "together.svg","urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
+    "OpenAI":  {"filename": "openai.png",   "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg"],  "bg": "#6d28d9"},
+    "Gemini":  {"filename": "gemini.png",   "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg"], "bg": "#2563eb"},
+    "Groq":    {"filename": "groq.png",     "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
+    "Llama":   {"filename": "llama.jpg",    "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
+    "Together":{"filename": "together.png", "urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
 }
 
 @st.cache_data(show_spinner=False)
@@ -81,7 +81,17 @@ def _load_logo_data(provider: str) -> str:
 
     if fp.exists():
         b = fp.read_bytes()
-        mime = "image/svg+xml" if fp.suffix.lower() == ".svg" else "image/png"
+        ext = fp.suffix.lower()
+        if ext == ".svg":
+            mime = "image/svg+xml"
+        elif ext in {".png", ".apng"}:
+            mime = "image/png"
+        elif ext in {".jpg", ".jpeg"}:
+            mime = "image/jpeg"
+        elif ext == ".webp":
+            mime = "image/webp"
+        else:
+            mime = "image/png"
         return f"data:{mime};base64," + base64.b64encode(b).decode()
 
     for url in meta.get("urls", []):
