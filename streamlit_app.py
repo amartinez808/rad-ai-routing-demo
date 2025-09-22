@@ -81,7 +81,8 @@ def _load_logo_data(provider: str) -> str:
 
     if fp.exists():
         b = fp.read_bytes()
-        return "data:image/svg+xml;base64," + base64.b64encode(b).decode()
+        mime = "image/svg+xml" if fp.suffix.lower() == ".svg" else "image/png"
+        return f"data:{mime};base64," + base64.b64encode(b).decode()
 
     for url in meta.get("urls", []):
         try:
@@ -118,8 +119,8 @@ with st.sidebar:
         for prov, meta in LOGO_MAP.items():
             st.caption(f"{prov} logo")
             uploaded = st.file_uploader(
-                f"Upload {prov} SVG",
-                type=["svg"],
+                f"Upload {prov} logo",
+                type=["svg", "png"],
                 key=f"up-{prov}",
                 accept_multiple_files=False,
                 label_visibility="collapsed",
