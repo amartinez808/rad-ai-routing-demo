@@ -327,7 +327,7 @@ if go:
 
     st.markdown("#### 🤝 LLM Council")
     for prov, score, quip in council:
-        st.markdown(
+        html_row = textwrap.dedent(
             f"""
             <div class="row fade">
               {logo_img_html(prov)}
@@ -336,9 +336,9 @@ if go:
                 <div class="sm">{quip}</div>
               </div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
+        st.markdown(html_row, unsafe_allow_html=True)
         time.sleep(0.12)
 
     st.divider()
