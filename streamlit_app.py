@@ -54,7 +54,7 @@ st.markdown(
 LOGO_MAP = {
     "OpenAI":  {"filename": "openai",   "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg"],  "bg": "#6d28d9"},
     "Gemini":  {"filename": "gemini",   "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4f/Google_Gemini_icon_2025.svg"], "bg": "#2563eb"},
-    "Groq":    {"filename": "groq",     "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
+    "Grok":    {"filename": "grok",     "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
     "Llama":   {"filename": "llama",    "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
     "Together":{"filename": "together", "urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
 }
@@ -122,6 +122,11 @@ def _load_logo_data(provider: str) -> str:
             if path.is_file():
                 candidate = path
                 break
+        if not candidate and provider.lower() == "grok":
+            for path in sorted(ASSETS_DIR.glob("groq.*")):
+                if path.is_file():
+                    candidate = path
+                    break
 
     if candidate:
         try:
@@ -175,7 +180,7 @@ def logo_img_html(provider: str, size: int = 30) -> str:
     if not data_uri:
         return f'<div class="avatar" style="background:{bg}">💬</div>'
     filter_style = ""
-    if provider.lower() == "groq":
+    if provider.lower() == "grok":
         filter_style = " filter: brightness(0) invert(1);"
     return f'''
       <div class="avatar" style="background:{bg}; padding:4px;">
@@ -194,13 +199,17 @@ def _secret(key: str) -> Optional[str]:
     return st.secrets.get(key) or os.getenv(key)
 
 
+def _grok_api_key() -> Optional[str]:
+    return _secret("GROK_API_KEY") or _secret("GROQ_API_KEY")
+
+
 HAVE_OPENAI = bool(_secret("OPENAI_API_KEY"))
-HAVE_GROQ = bool(_secret("GROQ_API_KEY"))
+HAVE_GROK = bool(_grok_api_key())
 HAVE_TOGETHER = bool(_secret("TOGETHER_API_KEY"))
 HAVE_GEMINI = bool(_secret("GEMINI_API_KEY"))
 LIVE_CAPABLE = {
     "OpenAI": HAVE_OPENAI,
-    "Groq": HAVE_GROQ,
+    "Grok": HAVE_GROK,
     "Together": HAVE_TOGETHER,
     "Gemini": HAVE_GEMINI,
 }
@@ -247,7 +256,7 @@ MODELS = [
     ("Gemini", "gemini-2.0-flash", {"speed": 5, "reason": 3, "cost": 5}),
     ("Llama", "llama-3.1-8b", {"speed": 5, "reason": 3, "cost": 5}),
     ("Together", "llama-3.3-70b", {"speed": 3, "reason": 4, "cost": 5}),
-    ("Groq", "llama-3.3-70b", {"speed": 5, "reason": 4, "cost": 4}),
+    ("Grok", "llama-3.3-70b", {"speed": 5, "reason": 4, "cost": 4}),
 ]
 
 
@@ -279,7 +288,7 @@ def heuristic_vote(user_text: str) -> Tuple[str, str, List[Tuple[str, float, str
         "Gemini": "I’m fast with webby tasks and structured responses.",
         "Llama": "Lean and quick—great for short prompts and drafts.",
         "Together": "Big-brain Llama 70B is solid for deeper takes.",
-        "Groq": "Blazing low latency—let me snap a result together.",
+        "Grok": "Blazing low latency—let me snap a result together.",
     }
     council = [(p, round(s, 2), quips[p]) for (p, _m, s) in base]
     return winner_prov, winner_model, council
@@ -308,10 +317,10 @@ def live_generate(provider_label: str, model: str, prompt: str, temperature: flo
         )
         return resp.choices[0].message.content.strip()
 
-    if "groq" in pl:
-        api_key = _secret("GROQ_API_KEY")
+    if "grok" in pl:
+        api_key = _grok_api_key()
         if not api_key:
-            raise RuntimeError("Missing GROQ_API_KEY")
+            raise RuntimeError("Missing GROK_API_KEY (or legacy GROQ_API_KEY)")
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         payload = {
@@ -455,7 +464,7 @@ if go:
 st.divider()
 st.markdown("##### Connection checklist")
 st.write("- 🔑 OpenAI: `OPENAI_API_KEY` (paid)")
-st.write("- 🆓 Groq: `GROQ_API_KEY` (dev tier)")
+st.write("- 🆓 Grok: `GROK_API_KEY` (dev tier; legacy `GROQ_API_KEY` also works)")
 st.write("- 🆓 Together: `TOGETHER_API_KEY` (llama-3.3-70b free endpoint)")
 st.write("- 🆓 Gemini: `GEMINI_API_KEY` (free tier)")
 st.caption("Simulated Mode requires no keys. Live Mode only runs if a key exists for the chosen provider.")
