@@ -146,26 +146,35 @@ st.markdown(
 .run-card li {margin-bottom:.3rem;}
 .run-card br {line-height:1.6;}
 .stMarkdown h3 {color:#e2e8f0;}
-.council-overlay {position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(1200px 600px at 50% -10%, rgba(2,6,23,.28), rgba(2,6,23,.72)); backdrop-filter: blur(2px); z-index: 9999;}
-.council-modal {width: min(520px, 92vw); border-radius: 20px; padding: 24px; background: linear-gradient(145deg, #0b1220, #0e1626); border: 1px solid rgba(148,163,184,.18); box-shadow: 0 16px 40px rgba(0,0,0,.35); color: #e5e7eb; text-align: center;}
-.council-orbit {position: relative; height: 150px; margin: 10px 0 6px;}
+.council-overlay {position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(1400px 720px at 50% -10%, rgba(15,23,42,.32), rgba(2,6,23,.82)); backdrop-filter: blur(3px); z-index: 9999; padding: 12px;}
+.council-modal {width: min(560px, 92vw); border-radius: 24px; padding: 26px; background: linear-gradient(160deg, rgba(12,18,32,.96), rgba(14,22,38,.82)); border: 1px solid rgba(148,163,184,.2); box-shadow: 0 18px 46px rgba(8,14,32,.55); color: #e5e7eb; text-align: left; display: grid; gap: 18px;}
+.council-hero {display:flex; align-items:center; gap: 0.9rem; padding: 16px 18px; border-radius: 18px; background: linear-gradient(145deg, rgba(10,17,30,.82), rgba(56,189,248,.12)); border:1px solid rgba(59,130,246,.22); box-shadow: inset 0 1px 0 rgba(255,255,255,.04);}
+.council-hero .hero-logo {width: 62px; height: 62px; border-radius: 18px; display:flex; align-items:center; justify-content:center; background: rgba(15,23,42,.9); box-shadow: 0 12px 28px rgba(14,165,233,.25); overflow:hidden;}
+.council-hero .hero-logo img {width: 46px; height: 46px; object-fit: contain; filter: drop-shadow(0 6px 18px rgba(56,189,248,.35));}
+.council-hero .hero-logo .hero-fallback {width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; font-size: 1.4rem; font-weight:700; color:#f8fafc;}
+.council-hero .hero-copy {display:flex; flex-direction:column; gap:4px;}
+.council-hero .hero-title {font-size:1rem; font-weight:600; color:#f8fafc; margin:0;}
+.council-hero .hero-sub {font-size:.85rem; color:#cbd5f5; margin:0; line-height:1.4;}
+.council-orbit {position: relative; height: 128px; margin: 2px 0 4px;}
 .council-orbit .av {position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);}
-.council-orbit .av img {width: 36px; height: 36px; border-radius: 10px; background:#fff; object-fit: contain; box-shadow: 0 6px 16px rgba(0,0,0,.25); transition: transform .2s ease, box-shadow .2s ease;}
-.council-orbit .fallback {display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:10px; background:#1f2937; color:#e2e8f0; font-weight:700; box-shadow:0 6px 16px rgba(0,0,0,.25);}
-.av.active img {transform: scale(1.18) translateZ(0); box-shadow: 0 10px 22px rgba(14,165,233,.35);}
+.council-orbit .av img {width: 40px; height: 40px; border-radius: 12px; background:#fff; object-fit: contain; box-shadow: 0 6px 18px rgba(0,0,0,.28); transition: transform .2s ease, box-shadow .2s ease;}
+.council-orbit .fallback {display:flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:12px; background:#1f2937; color:#e2e8f0; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,.28);}
+.av.active img {transform: scale(1.16) translateZ(0); box-shadow: 0 12px 26px rgba(56,189,248,.32);}
 .av.p0 {transform: translate(-50%,-50%) translate(0,-52px);}
-.av.p1 {transform: translate(-50%,-50%) translate(46px,-16px);}
-.av.p2 {transform: translate(-50%,-50%) translate(28px,40px);}
-.av.p3 {transform: translate(-50%,-50%) translate(-28px,40px);}
-.av.p4 {transform: translate(-50%,-50%) translate(-46px,-16px);}
-.av.p5 {transform: translate(-50%,-50%) translate(0,64px);}
+.av.p1 {transform: translate(-50%,-50%) translate(48px,-12px);}
+.av.p2 {transform: translate(-50%,-50%) translate(32px,42px);}
+.av.p3 {transform: translate(-50%,-50%) translate(-32px,42px);}
+.av.p4 {transform: translate(-50%,-50%) translate(-48px,-12px);}
+.av.p5 {transform: translate(-50%,-50%) translate(0,66px);}
 .typing {display:inline-block; letter-spacing:.15em;}
 .typing span {animation: blink 1.2s infinite;}
 .typing span:nth-child(2){ animation-delay:.2s; }
 .typing span:nth-child(3){ animation-delay:.4s; }
 @keyframes blink {0%,20%{ opacity:0;} 50%{opacity:1;} 100%{opacity:0;} }
-.qline {font-size:.95rem; color:#93a4b8; min-height: 24px;}
-.badge-sync {display:inline-flex; gap:.6rem; align-items:center; padding:.35rem .7rem; border-radius:999px; background:#0ea5e933; color:#bae6fd; border:1px solid #38bdf8; font-weight:600; font-size:.9rem; justify-content:center;}
+.qline {font-size:.95rem; color:#9db4d9; min-height: 24px; text-align:left;}
+.badge-sync {display:inline-flex; gap:.6rem; align-items:center; padding:.4rem .75rem; border-radius:12px; background:rgba(14,165,233,.16); color:#e0f2fe; border:1px solid rgba(56,189,248,.45); font-weight:600; font-size:.85rem; justify-content:flex-start; width:fit-content; box-shadow:0 10px 24px rgba(14,165,233,.18);}
+.council-progress {height:6px; border-radius:999px; background:rgba(148,163,184,.25); overflow:hidden;}
+.council-progress span {display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#38bdf8,#6366f1); box-shadow:0 6px 16px rgba(99,102,241,.42); transition: width .18s ease;}
 </style>
 """,
     unsafe_allow_html=True,
@@ -180,7 +189,7 @@ LOGO_MAP = {
     "Grok":    {"filename": "grok",     "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
     "Llama":   {"filename": "llama",    "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
     "Together":{"filename": "together", "urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
-    "Claude":  {"filename": "anthropic_claude", "urls": [], "bg": "#f97316"},
+    "Claude":  {"filename": "claude-ai-icon", "urls": [], "bg": "#f97316"},
 }
 
 def _mime_for_extension(ext: str) -> str:
@@ -343,10 +352,45 @@ def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
     if not quip_cycle:
         quip_cycle = [""]
 
+    hero_provider = next((p for p in display_models if p.lower() == "claude"), display_models[0])
+    hero_bg = LOGO_MAP.get(hero_provider, {}).get("bg", "#38bdf8")
+    hero_logo_data = _load_logo_data(hero_provider)
+    if hero_logo_data:
+        hero_logo_inner = f'<img src="{hero_logo_data}" alt="{hero_provider} logo">'
+    else:
+        hero_initial = html.escape(hero_provider[:1].upper()) or "?"
+        hero_logo_inner = f'<div class="hero-fallback">{hero_initial}</div>'
+
+    hero_copy_map = {
+        "claude": "Claude is orchestrating the high-reasoning checks before final vote.",
+        "openai": "OpenAI balances reasoning depth with speed for clean delivery.",
+        "gemini": "Gemini is lining up structured context and real-time snippets.",
+        "grok": "Grok is stress-testing the fast path for latency wins.",
+        "together": "Together is corralling the fine-tuned llamas for balance.",
+        "llama": "Llama is benchmarking token efficiency across drafts.",
+    }
+    hero_sub = hero_copy_map.get(hero_provider.lower(), "Syncing reasoning, speed, and cost preferences.")
+
+    hero_html = (
+        '<div class="council-hero">'
+        f'<div class="hero-logo" style="background:{hero_bg}">{hero_logo_inner}</div>'
+        '<div class="hero-copy">'
+        f'<p class="hero-title">{html.escape(hero_provider)} is orchestrating</p>'
+        f'<p class="hero-sub">{html.escape(hero_sub)}</p>'
+        '</div>'
+        '</div>'
+    )
+
     typing_html = '<span class="typing"><span>.</span><span>.</span><span>.</span></span>'
+
+    def _progress_bar(elapsed: float) -> str:
+        ratio = min(1.0, elapsed / max(seconds, 0.1))
+        width = max(6, int(ratio * 100))
+        return f'<div class="council-progress"><span style="width:{width}%"></span></div>'
 
     try:
         while time.perf_counter() - start < seconds:
+            elapsed = time.perf_counter() - start
             active_idx = frame % len(display_models)
             avatars_html = []
             for idx, provider in enumerate(display_models):
@@ -356,16 +400,24 @@ def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
                     f'<div class="av {pos_cls}{active_cls}">{avatar_markup[idx]}</div>'
                 )
 
-            quip_text = html.escape(quip_cycle[active_idx]) if quip_cycle[active_idx] else "&nbsp;"
+            current_provider = display_models[active_idx]
+            quip_text = "&nbsp;"
+            if quip_cycle[active_idx]:
+                quip_text = (
+                    f"<strong>{html.escape(current_provider)}</strong> · "
+                    f"{html.escape(quip_cycle[active_idx])}"
+                )
 
             overlay_html = (
                 '<div class="council-overlay">'
                 '<div class="council-modal">'
                 f'<div class="badge-sync">🧭 Council syncing {typing_html}</div>'
+                f"{hero_html}"
                 '<div class="council-orbit">'
                 + "".join(avatars_html)
                 + '</div>'
                 f'<div class="qline">{quip_text}</div>'
+                f"{_progress_bar(elapsed)}"
                 '</div>'
                 '</div>'
             )
@@ -568,10 +620,14 @@ with st.sidebar.expander("About this demo", expanded=False):
     cols = st.columns(2)
     if Path("assets/openai.webp").exists():
         cols[0].image("assets/openai.webp", caption="OpenAI", width=72)
-    claude_svg_sidebar = load_svg("assets/anthropic_claude.svg")
-    if claude_svg_sidebar:
-        cols[1].markdown(claude_svg_sidebar, unsafe_allow_html=True)
-        cols[1].caption("Claude (Anthropic)")
+    claude_icon_path = Path("assets/claude-ai-icon.webp")
+    if claude_icon_path.exists():
+        cols[1].image(str(claude_icon_path), caption="Claude (Anthropic)", width=72)
+    else:
+        claude_svg_sidebar = load_svg("assets/anthropic_claude.svg")
+        if claude_svg_sidebar:
+            cols[1].markdown(claude_svg_sidebar, unsafe_allow_html=True)
+            cols[1].caption("Claude (Anthropic)")
 
 st.title("🧭 RAD AI – Kayak for LLMs")
 
