@@ -82,6 +82,25 @@ def generate_stubbed_response(provider: str, route: str, prompt: str) -> str:
         lines.append("- Rationale: needs multi-hop reasoning; higher cost but better quality.")
     return "\n".join(lines)
 
+
+def load_svg(path: str) -> str:
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except Exception:
+        return ""
+
+
+def provider_badge(provider: str, model: str) -> str:
+    return f"""
+    <span style="display:inline-flex;align-items:center;gap:8px;
+      padding:4px 10px;border:1px solid var(--border,#2a2a2a);
+      border-radius:999px;font-size:12px;line-height:1;">
+      <strong style="font-weight:600">{provider.title()}</strong>
+      <span style="opacity:.7">·</span>
+      <span style="opacity:.8">{model}</span>
+    </span>
+    """
+
 # =========================
 # App Config
 # =========================
@@ -527,7 +546,37 @@ live = st.sidebar.toggle(
 )
 sidebar_notes = st.sidebar.text_input("Run note (optional)", value="")
 
+with st.sidebar.expander("About this demo", expanded=False):
+    st.write("Vendor-agnostic router. This run uses **your OpenAI subscription** for API calls.")
+    cols = st.columns(2)
+    if Path("assets/openai.webp").exists():
+        cols[0].image("assets/openai.webp", caption="OpenAI", width=72)
+    claude_svg_sidebar = load_svg("assets/anthropic_claude.svg")
+    if claude_svg_sidebar:
+        cols[1].markdown(claude_svg_sidebar, unsafe_allow_html=True)
+        cols[1].caption("Claude (Anthropic)")
+
 st.title("🧭 RAD AI – Kayak for LLMs")
+
+with st.container():
+    st.markdown("### Supported providers")
+    c1, c2 = st.columns(2)
+    with c1:
+        if Path("assets/openai.webp").exists():
+            st.image("assets/openai.webp", caption="OpenAI", width=96)
+        else:
+            st.caption("OpenAI")
+    with c2:
+        claude_svg = load_svg("assets/anthropic_claude.svg")
+        if claude_svg:
+            st.markdown(
+                f'<div style="height:28px;color:currentColor">{claude_svg}</div><div style="font-size:12px;opacity:.7">Claude (Anthropic)</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.caption("Claude (Anthropic)")
+    st.divider()
+
 st.caption("Type once. Watch the LLM council confer. Get one **Best Pick** and simple alternates. (Visual demo first; live mode optional.)")
 
 st.session_state.setdefault("alt_preview", "")
@@ -613,6 +662,11 @@ if go:
             st.error(error_msg)
             result_text = error_msg
             latency_ms = int((time.time() - start_time) * 1000)
+
+    try:
+        st.markdown(provider_badge(winner_prov, winner_model), unsafe_allow_html=True)
+    except NameError:
+        st.markdown(provider_badge("openai", "gpt-4o-mini"), unsafe_allow_html=True)
 
     out_toks = est_tokens(result_text)
     cost = est_cost(route, in_toks, out_toks)
