@@ -57,3 +57,12 @@ sudo docker compose up -d --build
 - `Dockerfile` – container image for the Streamlit app.
 - `docker-compose.yml` – runs the app plus the nginx reverse proxy.
 - `deployment/nginx.conf` – nginx virtual host configuration for `itsradai.com`.
+
+## Judge-Ready Quickstart
+- Local demo: `bash scripts/run_demo.sh`
+- Docker deploy: `bash scripts/build_deploy.sh`
+- Evidence packet scaffold: `evidence/README_evidence.md`
+- Pitch + demo scripts: `pitch/`
+- Routing log output: `data/routing_log.csv`
+- Screenshots checklist: `docs/screenshots_plan.txt`
+- Copy `.env.example` to `.env` (optional) and use the sidebar LIVE toggle to switch between stubbed and live calls.

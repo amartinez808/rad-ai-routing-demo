@@ -1,16 +1,86 @@
 import base64
+import csv
+import hashlib
 import html
 import json
 import os
 import random
 import textwrap
 import time
+import datetime as dt
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 import streamlit as st
+
+def ensure_dir(p): os.makedirs(os.path.dirname(p), exist_ok=True)
+
+
+def hash_text(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()[:10]
+
+
+def est_tokens(txt: str) -> int:
+    # simple ~4 chars/token heuristic
+    return max(1, int(len(txt) / 4))
+
+
+def est_cost(route: str, in_tokens: int, out_tokens: int) -> float:
+    # heuristic prices (adjust if app already has pricing):
+    pricing = {
+        "FAST": {"in": 0.15 / 1e6, "out": 0.60 / 1e6},  # cheap model family
+        "REASONING": {"in": 2.50 / 1e6, "out": 10.00 / 1e6},  # expensive reasoning
+    }
+    p = pricing.get(route, pricing["FAST"])
+    return round(in_tokens * p["in"] + out_tokens * p["out"], 6)
+
+
+LOG_PATH = "data/routing_log.csv"
+
+
+def log_decision(row: Dict[str, Any]):
+    ensure_dir(LOG_PATH)
+    write_header = not os.path.exists(LOG_PATH)
+    with open(LOG_PATH, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=list(row.keys()))
+        if write_header:
+            w.writeheader()
+        w.writerow(row)
+
+
+def load_recent(n=50):
+    if not os.path.exists(LOG_PATH):
+        return []
+    with open(LOG_PATH, "r", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    return rows[-n:]
+
+
+def determine_route(user_text: str, provider: str) -> str:
+    lowered = user_text.lower()
+    if len(user_text.strip()) > 260 or any(k in lowered for k in ["analyze", "explain", "strategy", "plan", "reason"]):
+        return "REASONING"
+    if provider in {"Together", "Grok"}:
+        return "REASONING"
+    return "FAST"
+
+
+def generate_stubbed_response(provider: str, route: str, prompt: str) -> str:
+    snippet = textwrap.shorten(prompt.strip().replace("\n", " "), width=140, placeholder="…") if prompt else ""
+    lines = [
+        f"{provider} ({route}) summary:",
+        "- Evaluated prompt goals and matched to historical routing wins.",
+        f"- First impression: '{snippet}'",
+        "- Recommendation: FAST handles concise asks; REASONING keeps nuance.",
+        "- Outcome: deliver actionable answer with cost awareness.",
+    ]
+    if route == "FAST":
+        lines.append("- Savings: ~3-5x cheaper than reasoning models for this prompt.")
+    else:
+        lines.append("- Rationale: needs multi-hop reasoning; higher cost but better quality.")
+    return "\n".join(lines)
 
 # =========================
 # App Config
@@ -305,20 +375,14 @@ def _escape_html(text: str) -> str:
     return escaped.replace("\n", "<br>")
 
 
-def render_simulated_card(provider: str) -> None:
-    """Render the best-pick card with friendly demo copy."""
+def render_simulated_card(provider: str, content: str) -> None:
+    """Render the best-pick card with simulated content."""
 
+    safe = _escape_html(content).replace("\n", "<br>")
     html_body = f"""
     <div class='run-card fade'>
-      <p><strong>Why {provider}?</strong> Balanced signal from the council for your request.</p>
-      <p><strong>Draft answer (simulated)</strong></p>
-      <ul>
-        <li>Problem: founders juggle dozens of LLMs without clear guidance.</li>
-        <li>Solution: RAD AI routes prompts like Kayak surfaces the best flight.</li>
-        <li>Why now: model quality exploded; buyers want outcomes, not model soup.</li>
-        <li>Traction: demo pilots show faster time-to-answer and lower cost.</li>
-        <li>Ask: intros to 3 design partners ready to ship co-branded pilots.</li>
-      </ul>
+      <p><strong>{provider} · simulated response</strong></p>
+      <p>{safe}</p>
     </div>
     """
     st.markdown(html_body, unsafe_allow_html=True)
@@ -455,16 +519,19 @@ def live_generate(provider_label: str, model: str, prompt: str, temperature: flo
 # =========================
 # UI
 # =========================
+st.sidebar.subheader("Mode & Notes")
+live = st.sidebar.toggle(
+    "LIVE mode",
+    value=False,
+    help="If off, run against stubbed responses.",
+)
+sidebar_notes = st.sidebar.text_input("Run note (optional)", value="")
+
 st.title("🧭 RAD AI – Kayak for LLMs")
 st.caption("Type once. Watch the LLM council confer. Get one **Best Pick** and simple alternates. (Visual demo first; live mode optional.)")
 
 st.session_state.setdefault("alt_preview", "")
-
-demo_mode = st.toggle(
-    "Simulated Mode (recommended for demo)",
-    value=True,
-    help="If off and keys exist, the Best Pick will run live.",
-)
+demo_mode = not live
 
 prompt = st.text_area(
     "Your prompt",
@@ -513,6 +580,14 @@ if go:
         unsafe_allow_html=True,
     )
 
+    route = determine_route(prompt, winner_prov)
+    st.caption(f"Routing decision: **{route}**")
+    start_time = time.time()
+    input_hash = hash_text(prompt)
+    in_toks = est_tokens(prompt)
+    result_text = ""
+    latency_ms = 0
+
     live_possible = not demo_mode and LIVE_CAPABLE.get(winner_prov, False)
     if winner_prov == "Llama":
         live_possible = False  # Llama entry is simulated-only
@@ -521,17 +596,38 @@ if go:
         st.info("Live mode skipped: keys missing or provider not supported. Showing simulated result.")
 
     if demo_mode or not live_possible:
-        render_simulated_card(winner_prov)
+        result_text = generate_stubbed_response(winner_prov, route, prompt)
+        render_simulated_card(winner_prov, result_text)
+        latency_ms = int((time.time() - start_time) * 1000)
     else:
         try:
             with st.spinner(f"Running live on {winner_prov}…"):
-                start = time.perf_counter()
-                result = live_generate(winner_prov, winner_model, prompt, 0.2)
-                latency_ms = (time.perf_counter() - start) * 1000
-            st.success(f"Live result in {latency_ms:.0f} ms")
-            render_live_card(result)
+                live_start = time.perf_counter()
+                result_text = live_generate(winner_prov, winner_model, prompt, 0.2)
+                live_latency_ms = int((time.perf_counter() - live_start) * 1000)
+            latency_ms = int((time.time() - start_time) * 1000)
+            st.success(f"Live result in {live_latency_ms:.0f} ms")
+            render_live_card(result_text)
         except Exception as exc:  # Graceful failure
-            st.error(f"Live call failed: {exc}")
+            error_msg = f"Live call failed: {exc}"
+            st.error(error_msg)
+            result_text = error_msg
+            latency_ms = int((time.time() - start_time) * 1000)
+
+    out_toks = est_tokens(result_text)
+    cost = est_cost(route, in_toks, out_toks)
+    log_decision(
+        {
+            "ts_iso": dt.datetime.utcnow().isoformat() + "Z",
+            "input_hash": input_hash,
+            "route": route,
+            "latency_ms": latency_ms,
+            "in_tokens": in_toks,
+            "out_tokens": out_toks,
+            "est_cost_usd": cost,
+            "notes": sidebar_notes,
+        }
+    )
 
     st.markdown("#### ✨ Good Alternates")
     alts = council[1:4]
@@ -553,6 +649,14 @@ if go:
 
     if st.session_state.get("alt_preview"):
         st.markdown(st.session_state["alt_preview"])
+
+st.divider()
+st.caption("Recent routing decisions")
+rows = load_recent(50)
+if rows:
+    st.dataframe(list(reversed(rows)), use_container_width=True)
+else:
+    st.info("No logs yet. Run a few queries.")
 
 st.divider()
 st.markdown("##### Connection checklist")

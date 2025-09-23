@@ -1,0 +1,6 @@
+Screens to capture (PNG):
+1) App home loaded
+2) FAST route example (input + output visible)
+3) REASONING route example
+4) Recent routing decisions table
+5) Optional: docker compose ps showing services up
