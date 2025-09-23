@@ -8,6 +8,7 @@ import random
 import textwrap
 import time
 import datetime as dt
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -157,6 +158,7 @@ st.markdown(
 .av.p2 {transform: translate(-50%,-50%) translate(28px,40px);}
 .av.p3 {transform: translate(-50%,-50%) translate(-28px,40px);}
 .av.p4 {transform: translate(-50%,-50%) translate(-46px,-16px);}
+.av.p5 {transform: translate(-50%,-50%) translate(0,64px);}
 .typing {display:inline-block; letter-spacing:.15em;}
 .typing span {animation: blink 1.2s infinite;}
 .typing span:nth-child(2){ animation-delay:.2s; }
@@ -317,7 +319,7 @@ def logo_img_html(provider: str, size: int = 30) -> str:
 def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
     """Display an overlay with orbiting provider avatars and quips."""
 
-    display_models = [m for m in models if m][:5]
+    display_models = [m for m in models if m][:6]
     if not display_models:
         return
 
@@ -325,7 +327,7 @@ def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
     frame_interval = 0.2
     start = time.perf_counter()
     frame = 0
-    positions = ["p0", "p1", "p2", "p3", "p4"]
+    positions = ["p0", "p1", "p2", "p3", "p4", "p5"]
 
     avatar_markup: List[str] = []
     for idx, provider in enumerate(display_models):
@@ -348,7 +350,7 @@ def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
             active_idx = frame % len(display_models)
             avatars_html = []
             for idx, provider in enumerate(display_models):
-                pos_cls = positions[idx]
+                pos_cls = positions[idx % len(positions)]
                 active_cls = " active" if idx == active_idx else ""
                 avatars_html.append(
                     f'<div class="av {pos_cls}{active_cls}">{avatar_markup[idx]}</div>'
@@ -588,33 +590,17 @@ go = st.button("Search all models")
 
 if go:
     st.session_state["alt_preview"] = ""
-    winner_prov = winner_model = None
-    council: List[Tuple[str, float, str]] = []
-    with st.status("Thinking...", expanded=False) as status:
-        cols = st.columns(3)
-        if Path("assets/openai.webp").exists():
-            cols[0].image("assets/openai.webp", width=36)
-        else:
-            cols[0].markdown('<div class="llm-chip">OpenAI</div>', unsafe_allow_html=True)
+    overlay_models = [prov for prov, _model, _attr in MODELS]
+    overlay_duration = 2.4
+    overall_start = time.perf_counter()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        vote_future = executor.submit(heuristic_vote, prompt)
+        show_loading_council(overlay_models, seconds=overlay_duration)
+        winner_prov, winner_model, council = vote_future.result()
 
-        claude_svg = load_svg("assets/anthropic_claude.svg")
-        if claude_svg:
-            cols[1].markdown(f'<div class="pulse">{claude_svg}</div>', unsafe_allow_html=True)
-        else:
-            cols[1].markdown('<div class="llm-chip pulse">Claude</div>', unsafe_allow_html=True)
-
-        if Path("assets/llama.jpg").exists():
-            cols[2].image("assets/llama.jpg", width=36)
-        else:
-            cols[2].markdown('<div class="llm-chip">Llama</div>', unsafe_allow_html=True)
-
-        status.update(label="Thinking... (council confers)")
-        overall_start = time.perf_counter()
-        winner_prov, winner_model, council = heuristic_vote(prompt)
-        elapsed = time.perf_counter() - overall_start
-        if elapsed < 1.5:
-            time.sleep(1.5 - elapsed)
-        status.update(label="Council decision locked.", state="complete")
+    elapsed = time.perf_counter() - overall_start
+    if elapsed < 1.8:
+        time.sleep(1.8 - elapsed)
 
     st.markdown("#### 🤝 LLM Council")
     for prov, score, quip in council:
