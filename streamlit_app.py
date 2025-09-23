@@ -8,7 +8,6 @@ import random
 import textwrap
 import time
 import datetime as dt
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -62,7 +61,7 @@ def determine_route(user_text: str, provider: str) -> str:
     lowered = user_text.lower()
     if len(user_text.strip()) > 260 or any(k in lowered for k in ["analyze", "explain", "strategy", "plan", "reason"]):
         return "REASONING"
-    if provider in {"Together", "Grok"}:
+    if provider in {"Together", "Grok", "Claude"}:
         return "REASONING"
     return "FAST"
 
@@ -100,6 +99,17 @@ def provider_badge(provider: str, model: str) -> str:
       <span style="opacity:.8">{model}</span>
     </span>
     """
+
+COUNCIL_CSS = """
+<style>
+.llm-chip{display:inline-flex;align-items:center;gap:.5rem;
+  padding:.35rem .6rem;border:1px solid var(--border,#2a2a2a);
+  border-radius:999px;font-size:.9rem}
+.llm-chip img, .llm-chip svg{height:18px;width:18px}
+.pulse{animation: pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%{opacity:.4;transform:scale(.98)}50%{opacity:1;transform:scale(1)}100%{opacity:.4;transform:scale(.98)}}
+</style>
+"""
 
 # =========================
 # App Config
@@ -159,6 +169,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.markdown(COUNCIL_CSS, unsafe_allow_html=True)
+
 # ---- Real logos: local -> download/cache -> upload fallback ----
 LOGO_MAP = {
     "OpenAI":  {"filename": "openai",   "urls": ["https://upload.wikimedia.org/wikipedia/commons/4/4d/OpenAI_logo_2025.svg"],  "bg": "#6d28d9"},
@@ -166,6 +178,7 @@ LOGO_MAP = {
     "Grok":    {"filename": "grok",     "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
     "Llama":   {"filename": "llama",    "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
     "Together":{"filename": "together", "urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
+    "Claude":  {"filename": "anthropic_claude", "urls": [], "bg": "#f97316"},
 }
 
 def _mime_for_extension(ext: str) -> str:
@@ -423,6 +436,7 @@ MODELS = [
     ("Llama", "llama-3.1-8b", {"speed": 5, "reason": 3, "cost": 5}),
     ("Together", "llama-3.3-70b", {"speed": 3, "reason": 4, "cost": 5}),
     ("Grok", "llama-3.3-70b", {"speed": 5, "reason": 4, "cost": 4}),
+    ("Claude", "claude-3-5-sonnet", {"speed": 3, "reason": 5, "cost": 4}),
 ]
 
 
@@ -432,6 +446,7 @@ QUIPS = {
     "Llama": "Lean and quick—great for short prompts and drafts.",
     "Together": "Big-brain Llama 70B is solid for deeper takes.",
     "Grok": "Blazing low latency—let me snap a result together.",
+    "Claude": "Strong reasoning with grounded, concise answers.",
 }
 
 
@@ -558,25 +573,6 @@ with st.sidebar.expander("About this demo", expanded=False):
 
 st.title("🧭 RAD AI – Kayak for LLMs")
 
-with st.container():
-    st.markdown("### Supported providers")
-    c1, c2 = st.columns(2)
-    with c1:
-        if Path("assets/openai.webp").exists():
-            st.image("assets/openai.webp", caption="OpenAI", width=96)
-        else:
-            st.caption("OpenAI")
-    with c2:
-        claude_svg = load_svg("assets/anthropic_claude.svg")
-        if claude_svg:
-            st.markdown(
-                f'<div style="height:28px;color:currentColor">{claude_svg}</div><div style="font-size:12px;opacity:.7">Claude (Anthropic)</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.caption("Claude (Anthropic)")
-    st.divider()
-
 st.caption("Type once. Watch the LLM council confer. Get one **Best Pick** and simple alternates. (Visual demo first; live mode optional.)")
 
 st.session_state.setdefault("alt_preview", "")
@@ -592,17 +588,33 @@ go = st.button("Search all models")
 
 if go:
     st.session_state["alt_preview"] = ""
-    overlay_models = [prov for prov, _model, _attr in MODELS]
-    overlay_duration = 2.4
-    overall_start = time.perf_counter()
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        vote_future = executor.submit(heuristic_vote, prompt)
-        show_loading_council(overlay_models, seconds=overlay_duration)
-        winner_prov, winner_model, council = vote_future.result()
+    winner_prov = winner_model = None
+    council: List[Tuple[str, float, str]] = []
+    with st.status("Thinking...", expanded=False) as status:
+        cols = st.columns(3)
+        if Path("assets/openai.webp").exists():
+            cols[0].image("assets/openai.webp", width=36)
+        else:
+            cols[0].markdown('<div class="llm-chip">OpenAI</div>', unsafe_allow_html=True)
 
-    elapsed = time.perf_counter() - overall_start
-    if elapsed < 1.8:
-        time.sleep(1.8 - elapsed)
+        claude_svg = load_svg("assets/anthropic_claude.svg")
+        if claude_svg:
+            cols[1].markdown(f'<div class="pulse">{claude_svg}</div>', unsafe_allow_html=True)
+        else:
+            cols[1].markdown('<div class="llm-chip pulse">Claude</div>', unsafe_allow_html=True)
+
+        if Path("assets/llama.jpg").exists():
+            cols[2].image("assets/llama.jpg", width=36)
+        else:
+            cols[2].markdown('<div class="llm-chip">Llama</div>', unsafe_allow_html=True)
+
+        status.update(label="Thinking... (council confers)")
+        overall_start = time.perf_counter()
+        winner_prov, winner_model, council = heuristic_vote(prompt)
+        elapsed = time.perf_counter() - overall_start
+        if elapsed < 1.5:
+            time.sleep(1.5 - elapsed)
+        status.update(label="Council decision locked.", state="complete")
 
     st.markdown("#### 🤝 LLM Council")
     for prov, score, quip in council:
