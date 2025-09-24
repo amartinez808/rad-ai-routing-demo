@@ -189,7 +189,7 @@ LOGO_MAP = {
     "Grok":    {"filename": "grok",     "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
     "Llama":   {"filename": "llama",    "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
     "Together":{"filename": "together", "urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
-    "Claude":  {"filename": "claude-symbol", "urls": [], "bg": "#d97757"},
+    "Claude":  {"filename": "claude-ai-icon", "urls": [], "bg": "#d97757"},
 }
 
 def _mime_for_extension(ext: str) -> str:
