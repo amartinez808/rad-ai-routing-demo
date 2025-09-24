@@ -236,9 +236,28 @@ def _detect_logo_format(data: bytes) -> Optional[Tuple[str, str]]:
     return None
 
 
+def _logo_cache_token(provider: str) -> float:
+    meta = LOGO_MAP.get(provider)
+    if not meta:
+        return 0.0
+    base_name = meta.get("filename", "")
+    candidates = list(ASSETS_DIR.glob(f"{base_name}.*"))
+    if provider.lower() == "grok":
+        candidates.extend(ASSETS_DIR.glob("groq.*"))
+    latest = 0.0
+    for path in candidates:
+        try:
+            latest = max(latest, path.stat().st_mtime)
+        except OSError:
+            continue
+    return latest
+
+
 @st.cache_data(show_spinner=False)
-def _load_logo_data(provider: str) -> str:
+def _load_logo_data(provider: str, cache_token: Optional[float] = None) -> str:
     """Return a data URI for the provider logo. Tries local file, then first good download URL."""
+
+    _ = cache_token  # parameter keeps cache aware of asset timestamp without altering logic
 
     meta = LOGO_MAP.get(provider)
     if not meta:
@@ -309,7 +328,7 @@ def _load_logo_data(provider: str) -> str:
 def logo_img_html(provider: str, size: int = 30) -> str:
     meta = LOGO_MAP.get(provider, {})
     bg = meta.get("bg", "#64748b")
-    data_uri = _load_logo_data(provider)
+    data_uri = _load_logo_data(provider, _logo_cache_token(provider))
     if not data_uri:
         return f'<div class="avatar" style="background:{bg}">💬</div>'
     filter_style = ""
@@ -343,7 +362,7 @@ def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
 
     avatar_markup: List[str] = []
     for idx, provider in enumerate(display_models):
-        data_uri = _load_logo_data(provider)
+        data_uri = _load_logo_data(provider, _logo_cache_token(provider))
         if data_uri:
             img_tag = f'<img src="{data_uri}" alt="{provider} logo">'
         else:
@@ -357,7 +376,7 @@ def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
 
     hero_provider = next((p for p in display_models if p.lower() == "claude"), display_models[0])
     hero_bg = LOGO_MAP.get(hero_provider, {}).get("bg", "#38bdf8")
-    hero_logo_data = _load_logo_data(hero_provider)
+    hero_logo_data = _load_logo_data(hero_provider, _logo_cache_token(hero_provider))
     if hero_logo_data:
         hero_logo_inner = f'<img src="{hero_logo_data}" alt="{hero_provider} logo">'
     else:
