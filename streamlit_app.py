@@ -115,7 +115,7 @@ COUNCIL_CSS = """
 # =========================
 # App Config
 # =========================
-st.set_page_config(page_title="RAD AI – LLM Metasearch (Kayak Demo)", page_icon="🧭", layout="centered")
+st.set_page_config(page_title="RAD AI – LLM Metasearch (Kayak Demo)", page_icon="🧭", layout="wide")
 
 ASSETS_DIR = Path("assets")
 ASSETS_DIR.mkdir(exist_ok=True)
@@ -146,10 +146,10 @@ st.markdown(
 .run-card li {margin-bottom:.3rem;}
 .run-card br {line-height:1.6;}
 .stMarkdown h3 {color:#e2e8f0;}
-.council-overlay {position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(1400px 720px at 50% -10%, rgba(15,23,42,.32), rgba(2,6,23,.82)); backdrop-filter: blur(3px); z-index: 9999; padding: 12px;}
-.council-modal {width: min(560px, 92vw); border-radius: 24px; padding: 26px; background: linear-gradient(160deg, rgba(12,18,32,.96), rgba(14,22,38,.82)); border: 1px solid rgba(148,163,184,.2); box-shadow: 0 18px 46px rgba(8,14,32,.55); color: #e5e7eb; text-align: left; display: grid; gap: 18px;}
-.council-hero {display:flex; align-items:center; gap: 0.9rem; padding: 16px 18px; border-radius: 18px; background: linear-gradient(145deg, rgba(10,17,30,.82), rgba(56,189,248,.12)); border:1px solid rgba(59,130,246,.22); box-shadow: inset 0 1px 0 rgba(255,255,255,.04);}
-.council-hero .hero-logo {width: 62px; height: 62px; border-radius: 18px; display:flex; align-items:center; justify-content:center; background: rgba(15,23,42,.9); box-shadow: 0 12px 28px rgba(14,165,233,.25); overflow:hidden;}
+.council-overlay {position: fixed; inset: 0; display: grid; place-items: center; background: rgba(8,15,35,.68); backdrop-filter: blur(8px); z-index: 9999; padding: 12px;}
+.council-modal {width: min(560px, 92vw); border-radius: 24px; padding: 26px; background: linear-gradient(150deg, rgba(15,23,42,.96), rgba(30,41,59,.88)); border: 1px solid rgba(148,163,184,.28); box-shadow: 0 18px 40px rgba(8,15,35,.38); color: #e5e7eb; text-align: left; display: grid; gap: 18px;}
+.council-hero {display:flex; align-items:center; gap: 0.9rem; padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, rgba(30,58,138,.35), rgba(6,182,212,.14)); border:1px solid rgba(148,163,184,.32); box-shadow: inset 0 1px 0 rgba(255,255,255,.05);}
+.council-hero .hero-logo {width: 62px; height: 62px; border-radius: 18px; display:flex; align-items:center; justify-content:center; background: rgba(15,23,42,.82); box-shadow: 0 12px 24px rgba(14,165,233,.22); overflow:hidden;}
 .council-hero .hero-logo img {width: 46px; height: 46px; object-fit: contain; filter: drop-shadow(0 6px 18px rgba(56,189,248,.35));}
 .council-hero .hero-logo .hero-fallback {width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; font-size: 1.4rem; font-weight:700; color:#f8fafc;}
 .council-hero .hero-copy {display:flex; flex-direction:column; gap:4px;}
@@ -172,9 +172,24 @@ st.markdown(
 .typing span:nth-child(3){ animation-delay:.4s; }
 @keyframes blink {0%,20%{ opacity:0;} 50%{opacity:1;} 100%{opacity:0;} }
 .qline {font-size:.95rem; color:#9db4d9; min-height: 24px; text-align:left;}
-.badge-sync {display:inline-flex; gap:.6rem; align-items:center; padding:.4rem .75rem; border-radius:12px; background:rgba(14,165,233,.16); color:#e0f2fe; border:1px solid rgba(56,189,248,.45); font-weight:600; font-size:.85rem; justify-content:flex-start; width:fit-content; box-shadow:0 10px 24px rgba(14,165,233,.18);}
+.badge-sync {display:inline-flex; gap:.6rem; align-items:center; padding:.4rem .75rem; border-radius:12px; background:rgba(14,165,233,.12); color:#e0f2fe; border:1px solid rgba(56,189,248,.35); font-weight:600; font-size:.85rem; justify-content:flex-start; width:fit-content; box-shadow:0 10px 24px rgba(56,189,248,.16);}
 .council-progress {height:6px; border-radius:999px; background:rgba(148,163,184,.25); overflow:hidden;}
 .council-progress span {display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#38bdf8,#6366f1); box-shadow:0 6px 16px rgba(99,102,241,.42); transition: width .18s ease;}
+.hero-wrap{display:flex;flex-direction:column;gap:.4rem;}
+.hero-kicker{font-size:.8rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#38bdf8;}
+.hero-title{font-size:2.25rem;font-weight:700;color:#0f172a;margin:0;}
+.hero-sub{font-size:1rem;color:#475569;max-width:620px;}
+.hero-card{border:1px solid rgba(148,163,184,.35);background:linear-gradient(145deg,#0f172a,#1f2937);color:#e2e8f0;padding:1rem 1.1rem;border-radius:18px;display:grid;gap:.55rem;box-shadow:0 12px 30px rgba(15,23,42,.22);}
+.hero-card.is-muted{background:linear-gradient(145deg,#1e293b,#111827);}
+.hero-card__title{font-size:.95rem;font-weight:600;}
+.hero-card__meta{display:flex;flex-wrap:wrap;gap:.35rem;}
+.hero-card__meta .chip{margin-right:0; margin-bottom:0;}
+.helper-card{border:1px solid #e2e8f0;background:#f8fafc;padding:.9rem 1rem;border-radius:16px;box-shadow:0 8px 18px rgba(148,163,184,.18);display:grid;gap:.55rem;}
+.helper-card h4{margin:0;font-size:.95rem;color:#0f172a;}
+.helper-card ul{margin:0;padding-left:1.1rem;color:#334155;font-size:.85rem;}
+.helper-card li{margin-bottom:.35rem;}
+.helper-card li:last-child{margin-bottom:0;}
+.stButton button[kind="primary"], .stFormSubmitButton button[kind="primary"]{background:linear-gradient(90deg,#2563eb,#7c3aed)!important;color:#f8fafc!important;border:none!important;box-shadow:0 12px 24px rgba(79,70,229,.32)!important;font-weight:600!important;height:48px;}
 </style>
 """,
     unsafe_allow_html=True,
@@ -347,7 +362,7 @@ def logo_img_html(provider: str, size: int = 30) -> str:
     '''
 
 
-def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
+def show_loading_council(models: List[str], seconds: float = 1.8) -> None:
     """Display an overlay with orbiting provider avatars and quips."""
 
     display_models = [m for m in models if m][:6]
@@ -355,7 +370,7 @@ def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
         return
 
     placeholder = st.empty()
-    frame_interval = 0.2
+    frame_interval = 0.18
     start = time.perf_counter()
     frame = 0
     positions = ["p0", "p1", "p2", "p3", "p4", "p5"]
@@ -374,34 +389,34 @@ def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
     if not quip_cycle:
         quip_cycle = [""]
 
-    hero_provider = next((p for p in display_models if p.lower() == "claude"), display_models[0])
-    hero_bg = LOGO_MAP.get(hero_provider, {}).get("bg", "#38bdf8")
-    hero_logo_data = _load_logo_data(hero_provider, _logo_cache_token(hero_provider))
-    if hero_logo_data:
-        hero_logo_inner = f'<img src="{hero_logo_data}" alt="{hero_provider} logo">'
-    else:
-        hero_initial = html.escape(hero_provider[:1].upper()) or "?"
-        hero_logo_inner = f'<div class="hero-fallback">{hero_initial}</div>'
-
     hero_copy_map = {
-        "claude": "Claude is orchestrating the high-reasoning checks before final vote.",
-        "openai": "OpenAI balances reasoning depth with speed for clean delivery.",
-        "gemini": "Gemini is lining up structured context and real-time snippets.",
-        "grok": "Grok is stress-testing the fast path for latency wins.",
-        "together": "Together is corralling the fine-tuned llamas for balance.",
-        "llama": "Llama is benchmarking token efficiency across drafts.",
+        "claude": "Claude balances structured reasoning with grounded tradeoffs.",
+        "openai": "OpenAI blends fast iteration with multi-step reasoning cues.",
+        "gemini": "Gemini maps real-time snippets into concise structure.",
+        "grok": "Grok stress-tests low-latency paths for speed wins.",
+        "together": "Together orchestrates tuned llama variants for balance.",
+        "llama": "Llama keeps token efficiency tight across drafts.",
     }
-    hero_sub = hero_copy_map.get(hero_provider.lower(), "Syncing reasoning, speed, and cost preferences.")
+    default_hero_sub = "Council balances speed, depth, and spend before the vote closes."
 
-    hero_html = (
-        '<div class="council-hero">'
-        f'<div class="hero-logo" style="background:{hero_bg}">{hero_logo_inner}</div>'
-        '<div class="hero-copy">'
-        f'<p class="hero-title">{html.escape(hero_provider)} is orchestrating</p>'
-        f'<p class="hero-sub">{html.escape(hero_sub)}</p>'
-        '</div>'
-        '</div>'
-    )
+    def _hero_section(provider: str) -> str:
+        hero_bg = LOGO_MAP.get(provider, {}).get("bg", "#38bdf8")
+        hero_logo_data = _load_logo_data(provider, _logo_cache_token(provider))
+        if hero_logo_data:
+            hero_logo_inner = f'<img src="{hero_logo_data}" alt="{provider} logo">'
+        else:
+            hero_initial = html.escape(provider[:1].upper()) or "?"
+            hero_logo_inner = f'<div class="hero-fallback">{hero_initial}</div>'
+        hero_sub = hero_copy_map.get(provider.lower(), default_hero_sub)
+        return (
+            '<div class="council-hero">'
+            f'<div class="hero-logo" style="background:{hero_bg}">{hero_logo_inner}</div>'
+            '<div class="hero-copy">'
+            f'<p class="hero-title">{html.escape(provider)} is sharing its vote</p>'
+            f'<p class="hero-sub">{html.escape(hero_sub)}</p>'
+            '</div>'
+            '</div>'
+        )
 
     typing_html = '<span class="typing"><span>.</span><span>.</span><span>.</span></span>'
 
@@ -423,12 +438,14 @@ def show_loading_council(models: List[str], seconds: float = 2.4) -> None:
                 )
 
             current_provider = display_models[active_idx]
-            quip_text = "&nbsp;"
+            quip_text = "Council balancing best-fit signals."
             if quip_cycle[active_idx]:
                 quip_text = (
                     f"<strong>{html.escape(current_provider)}</strong> · "
                     f"{html.escape(quip_cycle[active_idx])}"
                 )
+
+            hero_html = _hero_section(current_provider)
 
             overlay_html = (
                 '<div class="council-overlay">'
@@ -630,7 +647,8 @@ def run_council_decision(prompt: str, demo_mode: bool, sidebar_notes: str) -> Di
     """Execute the council vote and generation flow, returning structured run data."""
 
     overlay_models = [prov for prov, _model, _attr in MODELS]
-    overlay_duration = 2.4
+    overlay_duration = 1.8
+    min_overlay_time = 1.4
     overall_start = time.perf_counter()
 
     with ThreadPoolExecutor(max_workers=1) as executor:
@@ -639,8 +657,8 @@ def run_council_decision(prompt: str, demo_mode: bool, sidebar_notes: str) -> Di
         winner_prov, winner_model, council = vote_future.result()
 
     elapsed = time.perf_counter() - overall_start
-    if elapsed < 1.8:
-        time.sleep(1.8 - elapsed)
+    if elapsed < min_overlay_time:
+        time.sleep(min_overlay_time - elapsed)
 
     notifications: List[Tuple[str, str]] = []
 
@@ -720,103 +738,109 @@ def render_run(run: Dict[str, Any]) -> None:
     if not run:
         return
 
-    st.markdown("#### Decision Summary")
-    metrics_cols = st.columns(4)
-    metrics_cols[0].metric("Routing", run["route"])
-    metrics_cols[1].metric("Latency", f"{run['latency_ms']} ms")
-    metrics_cols[2].metric(
-        "Tokens",
-        f"{run['in_tokens']} in / {run['out_tokens']} out",
-    )
-    metrics_cols[3].metric("Est. cost", f"${run['cost']:.4f}")
+    summary_tab, council_tab, alternates_tab = st.tabs(["Summary", "Council", "Alternates"])
 
-    note_bits = []
-    if run.get("notes"):
-        note_bits.append(f"Note: {run['notes']}")
-    if run.get("timestamp"):
-        note_bits.append(f"Logged {run['timestamp']}")
-    if note_bits:
-        st.caption(" · ".join(note_bits))
+    with summary_tab:
+        st.markdown("#### Decision Summary")
+        metrics_cols = st.columns(4)
+        metrics_cols[0].metric("Routing", run["route"])
+        metrics_cols[1].metric("Latency", f"{run['latency_ms']} ms")
+        metrics_cols[2].metric(
+            "Tokens",
+            f"{run['in_tokens']} in / {run['out_tokens']} out",
+        )
+        metrics_cols[3].metric("Est. cost", f"${run['cost']:.4f}")
 
-    for level, message in run.get("notifications", []):
-        if level == "info":
-            st.info(message)
-        elif level == "success":
-            st.success(message)
-        elif level == "warning":
-            st.warning(message)
-        elif level == "error":
-            st.error(message)
+        note_bits = []
+        if run.get("notes"):
+            note_bits.append(f"Note: {run['notes']}")
+        if run.get("timestamp"):
+            note_bits.append(f"Logged {run['timestamp']}")
+        if note_bits:
+            st.caption(" · ".join(note_bits))
+
+        for level, message in run.get("notifications", []):
+            if level == "info":
+                st.info(message)
+            elif level == "success":
+                st.success(message)
+            elif level == "warning":
+                st.warning(message)
+            elif level == "error":
+                st.error(message)
+            else:
+                st.write(message)
+
+        winner = run.get("winner", {})
+        winner_prov = winner.get("provider", "")
+        winner_model = winner.get("model", "")
+
+        st.markdown("### Best Pick")
+        if winner_prov and winner_model:
+            st.markdown('<span class="badge pick">Best Pick</span>', unsafe_allow_html=True)
+            st.markdown(f"**{winner_prov} · {winner_model}**")
+            st.markdown(provider_badge(winner_prov, winner_model), unsafe_allow_html=True)
+            st.markdown(logo_img_html(winner_prov), unsafe_allow_html=True)
+
+        feature_chips = ["Speed", "Reasoning", "Budget-friendly"]
+        if run["route"] == "FAST":
+            feature_chips = ["Latency saver", "Budget friendly", "Single-shot"]
         else:
-            st.write(message)
+            feature_chips = ["Deep reasoning", "High fidelity", "Context stitch"]
 
-    winner = run.get("winner", {})
-    winner_prov = winner.get("provider", "")
-    winner_model = winner.get("model", "")
+        st.markdown(
+            "".join([f'<span class="chip chip-primary">{c}</span>' for c in feature_chips]),
+            unsafe_allow_html=True,
+        )
 
-    st.markdown("### Best Pick")
-    if winner_prov and winner_model:
-        st.markdown('<span class="badge pick">Best Pick</span>', unsafe_allow_html=True)
-        st.markdown(f"**{winner_prov} · {winner_model}**")
-        st.markdown(provider_badge(winner_prov, winner_model), unsafe_allow_html=True)
-        st.markdown(logo_img_html(winner_prov), unsafe_allow_html=True)
+        had_error = any(level == "error" for level, _ in run.get("notifications", []))
+        if run.get("was_live") and not had_error:
+            render_live_card(run["result_text"])
+        elif had_error:
+            st.error(run["result_text"])
+        else:
+            render_simulated_card(winner_prov or "Council", run["result_text"])
 
-    feature_chips = ["Speed", "Reasoning", "Budget-friendly"]
-    if run["route"] == "FAST":
-        feature_chips = ["Latency saver", "Budget friendly", "Single-shot"]
-    else:
-        feature_chips = ["Deep reasoning", "High fidelity", "Context stitch"]
+    with council_tab:
+        st.markdown("#### Council Ranking")
+        council = run.get("council", [])
+        if council:
+            council_cols = st.columns(2)
+            for idx, (prov, score, quip) in enumerate(council):
+                with council_cols[idx % len(council_cols)]:
+                    st.markdown(logo_img_html(prov), unsafe_allow_html=True)
+                    st.markdown(f"**{prov}** · score {score}")
+                    if quip:
+                        st.caption(quip)
+        else:
+            st.caption("No council data available yet.")
 
-    st.markdown(
-        "".join([f'<span class="chip chip-primary">{c}</span>' for c in feature_chips]),
-        unsafe_allow_html=True,
-    )
-
-    had_error = any(level == "error" for level, _ in run.get("notifications", []))
-    if run.get("was_live") and not had_error:
-        render_live_card(run["result_text"])
-    elif had_error:
-        st.error(run["result_text"])
-    else:
-        render_simulated_card(winner_prov or "Council", run["result_text"])
-
-    st.divider()
-
-    st.markdown("#### Council Ranking")
-    council = run.get("council", [])
-    if council:
-        council_cols = st.columns(2)
-        for idx, (prov, score, quip) in enumerate(council):
-            with council_cols[idx % 2]:
-                st.markdown(logo_img_html(prov), unsafe_allow_html=True)
-                st.markdown(f"**{prov}** · score {score}")
-                st.caption(quip)
-    else:
-        st.caption("No council data available.")
-
-    alternates = run.get("alternates", [])
-    if alternates:
-        st.divider()
+    with alternates_tab:
         st.markdown("#### Alternate Takes")
-        alt_cols = st.columns(len(alternates))
-        for idx, (prov, _score, quip) in enumerate(alternates):
-            with alt_cols[idx]:
-                st.markdown(f'<span class="badge alt">{prov}</span>', unsafe_allow_html=True)
-                st.markdown(logo_img_html(prov), unsafe_allow_html=True)
-                st.caption(quip)
-                btn_key = f"alt-{hash_text(run['prompt'])[:4]}-{prov}"
-                if st.button(f"Preview {prov}", key=btn_key):
-                    preview = textwrap.dedent(
-                        f"""
-                        **{prov} (simulated take)**  
-                        - Signal: {quip}  
-                        - Would highlight alternate POV and give a second draft.
-                        """
-                    )
-                    st.session_state["alt_preview"] = preview
+        alternates = run.get("alternates", [])
+        if alternates:
+            alt_cols = st.columns(len(alternates))
+            for idx, (prov, _score, quip) in enumerate(alternates):
+                with alt_cols[idx]:
+                    st.markdown(f'<span class="badge alt">{prov}</span>', unsafe_allow_html=True)
+                    st.markdown(logo_img_html(prov), unsafe_allow_html=True)
+                    if quip:
+                        st.caption(quip)
+                    btn_key = f"alt-{hash_text(run['prompt'])[:4]}-{prov}"
+                    if st.button(f"Preview {prov}", key=btn_key):
+                        preview = textwrap.dedent(
+                            f"""
+                            **{prov} (simulated take)**  
+                            - Signal: {quip}  
+                            - Would highlight alternate POV and give a second draft.
+                            """
+                        )
+                        st.session_state["alt_preview"] = preview
+        else:
+            st.caption("Run once more to surface alternate takes.")
 
-    if st.session_state.get("alt_preview"):
-        st.markdown(st.session_state["alt_preview"])
+        if st.session_state.get("alt_preview"):
+            st.markdown(st.session_state["alt_preview"])
 
 
 # =========================
@@ -831,46 +855,105 @@ live = st.sidebar.toggle(
 sidebar_notes = st.sidebar.text_input("Run note (optional)", value="")
 
 with st.sidebar.expander("About this demo", expanded=False):
-    st.write("Vendor-agnostic router. This run uses **your OpenAI subscription** for API calls.")
-    cols = st.columns(2)
-    if Path("assets/openai.webp").exists():
-        cols[0].image("assets/openai.webp", caption="OpenAI", width=72)
-    cols[1].markdown(logo_img_html("Claude"), unsafe_allow_html=True)
-    cols[1].caption("Claude (Anthropic)")
+    st.write("Model-agnostic router. This run uses **your API subscriptions** when Live mode is enabled.")
+    providers = list(LOGO_MAP.keys())
+    logo_cols = st.columns(2)
+    for idx, provider in enumerate(providers):
+        col = logo_cols[idx % len(logo_cols)]
+        with col:
+            col.markdown(logo_img_html(provider, size=42), unsafe_allow_html=True)
+            col.caption(provider)
 
-st.title("🧭 RAD AI – Kayak for LLMs")
-
-st.caption("Type once. Watch the LLM council confer. Get one **Best Pick** and simple alternates. (Visual demo first; live mode optional.)")
+DEFAULT_PROMPT = "In 5 bullets, pitch RAD AI (Rational Automation Design): problem, solution, why now, traction, ask."
 
 st.session_state.setdefault("alt_preview", "")
+st.session_state.setdefault("prompt_text", DEFAULT_PROMPT)
 demo_mode = not live
 
 ready_keys = [name for name, ok in LIVE_CAPABLE.items() if ok]
 missing_keys = [name for name, ok in LIVE_CAPABLE.items() if not ok]
 
-if demo_mode:
-    st.info("Simulated mode active. Toggle LIVE mode in the sidebar once keys are configured.")
-else:
-    live_msg = "Live mode on."
-    if ready_keys:
-        live_msg += " Keys ready for " + ", ".join(ready_keys) + "."
-    if missing_keys:
-        live_msg += " Add keys for " + ", ".join(missing_keys) + " to expand coverage."
-    st.success(live_msg)
+hero_left, hero_right = st.columns([2.4, 1], gap="large")
 
-prompt = st.text_area(
-    "Your prompt",
-    "In 5 bullets, pitch RAD AI (Rational Automation Design): problem, solution, why now, traction, ask.",
-    height=140,
-)
+with hero_left:
+    st.markdown(
+        """
+        <div class="hero-wrap">
+          <div class="hero-kicker">Model-agnostic routing</div>
+          <h1 class="hero-title">Kayak for LLMs—one council, unified output</h1>
+          <p class="hero-sub">Every prompt checks speed, reasoning depth, and budget across OpenAI, Gemini, Claude, Grok, Llama, Together, and more.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-go = st.button("Search all models")
+with hero_right:
+    status_class = "hero-card"
+    if demo_mode:
+        status_class += " is-muted"
+        status_title = "Simulated council"
+        status_body = "Live mode is off. Toggle it once credentials are configured."
+    else:
+        status_title = "Live council"
+        status_body = "Winning provider executes live with your available keys."
+
+    meta_sections: List[str] = []
+    ready_markup = "".join(
+        f"<span class='chip chip-primary'>{html.escape(name)}</span>" for name in ready_keys
+    )
+    if ready_markup:
+        meta_sections.append(
+            f"<div class='hero-card__meta'><span class='chip'>Keys ready</span>{ready_markup}</div>"
+        )
+
+    missing_markup = "".join(
+        f"<span class='chip'>{html.escape(name)}</span>" for name in missing_keys
+    )
+    if missing_markup:
+        meta_sections.append(
+            f"<div class='hero-card__meta'><span class='chip'>Add keys</span>{missing_markup}</div>"
+        )
+
+    status_html = f"""
+    <div class="{status_class}">
+      <div class="hero-card__title">{html.escape(status_title)}</div>
+      <p class="sm">{html.escape(status_body)}</p>
+      {''.join(meta_sections)}
+    </div>
+    """
+    hero_right.markdown(status_html, unsafe_allow_html=True)
+
+with st.form("router-form", enter_to_submit=False):
+    prompt_col, info_col = st.columns([3, 1], gap="large")
+    with prompt_col:
+        prompt = st.text_area(
+            "Your prompt",
+            height=180,
+            key="prompt_text",
+        )
+    with info_col:
+        info_col.markdown(
+            """
+            <div class="helper-card">
+              <h4>How routing works</h4>
+              <ul>
+                <li>Heuristics balance latency, reasoning depth, and estimated cost.</li>
+                <li>Live mode only calls providers you have keys for.</li>
+                <li>Logs store hashed inputs plus metrics for quick audits.</li>
+              </ul>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    submit = st.form_submit_button("Search the council", use_container_width=True, type="primary")
+
+prompt_value = st.session_state.get("prompt_text", "")
 
 results_container = st.container()
 
-if go:
+if submit:
     st.session_state["alt_preview"] = ""
-    st.session_state["last_run"] = run_council_decision(prompt, demo_mode, sidebar_notes)
+    st.session_state["last_run"] = run_council_decision(prompt_value, demo_mode, sidebar_notes)
 
 run_data = st.session_state.get("last_run")
 
