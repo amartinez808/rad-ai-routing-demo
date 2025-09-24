@@ -816,15 +816,8 @@ with st.sidebar.expander("About this demo", expanded=False):
     cols = st.columns(2)
     if Path("assets/openai.webp").exists():
         cols[0].image("assets/openai.webp", caption="OpenAI", width=72)
-    claude_symbol = load_svg("assets/claude-symbol.svg")
-    if claude_symbol:
-        cols[1].markdown(claude_symbol, unsafe_allow_html=True)
-        cols[1].caption("Claude (Anthropic)")
-    else:
-        claude_svg_sidebar = load_svg("assets/anthropic_claude.svg")
-        if claude_svg_sidebar:
-            cols[1].markdown(claude_svg_sidebar, unsafe_allow_html=True)
-            cols[1].caption("Claude (Anthropic)")
+    cols[1].markdown(logo_img_html("Claude"), unsafe_allow_html=True)
+    cols[1].caption("Claude (Anthropic)")
 
 st.title("🧭 RAD AI – Kayak for LLMs")
 
