@@ -189,7 +189,7 @@ LOGO_MAP = {
     "Grok":    {"filename": "grok",     "urls": ["https://upload.wikimedia.org/wikipedia/commons/9/9c/Groq_logo.svg"],         "bg": "#ef4444"},
     "Llama":   {"filename": "llama",    "urls": ["https://custom.typingmind.com/tools/model-icons/llama/llama.svg"],            "bg": "#16a34a"},
     "Together":{"filename": "together", "urls": ["https://custom.typingmind.com/tools/model-icons/together/together.svg"],       "bg": "#0ea5e9"},
-    "Claude":  {"filename": "claude-ai-icon", "urls": [], "bg": "#f97316"},
+    "Claude":  {"filename": "claude-symbol", "urls": [], "bg": "#d97757"},
 }
 
 def _mime_for_extension(ext: str) -> str:
@@ -314,9 +314,12 @@ def logo_img_html(provider: str, size: int = 30) -> str:
         return f'<div class="avatar" style="background:{bg}">💬</div>'
     filter_style = ""
     img_background = "background:white;"
-    if provider.lower() == "grok":
+    lower_provider = provider.lower()
+    if lower_provider == "grok":
         img_background = "background:transparent;"
         filter_style = " filter: brightness(0) invert(1);"
+    elif lower_provider == "claude":
+        img_background = "background:transparent;"
     return f'''
       <div class="avatar" style="background:{bg}; padding:4px;">
         <img src="{data_uri}" alt="{provider} logo"
@@ -620,9 +623,10 @@ with st.sidebar.expander("About this demo", expanded=False):
     cols = st.columns(2)
     if Path("assets/openai.webp").exists():
         cols[0].image("assets/openai.webp", caption="OpenAI", width=72)
-    claude_icon_path = Path("assets/claude-ai-icon.webp")
-    if claude_icon_path.exists():
-        cols[1].image(str(claude_icon_path), caption="Claude (Anthropic)", width=72)
+    claude_symbol = load_svg("assets/claude-symbol.svg")
+    if claude_symbol:
+        cols[1].markdown(claude_symbol, unsafe_allow_html=True)
+        cols[1].caption("Claude (Anthropic)")
     else:
         claude_svg_sidebar = load_svg("assets/anthropic_claude.svg")
         if claude_svg_sidebar:
