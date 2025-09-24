@@ -607,6 +607,199 @@ def live_generate(provider_label: str, model: str, prompt: str, temperature: flo
     raise RuntimeError("Live mode: provider not supported yet.")
 
 
+def run_council_decision(prompt: str, demo_mode: bool, sidebar_notes: str) -> Dict[str, Any]:
+    """Execute the council vote and generation flow, returning structured run data."""
+
+    overlay_models = [prov for prov, _model, _attr in MODELS]
+    overlay_duration = 2.4
+    overall_start = time.perf_counter()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        vote_future = executor.submit(heuristic_vote, prompt)
+        show_loading_council(overlay_models, seconds=overlay_duration)
+        winner_prov, winner_model, council = vote_future.result()
+
+    elapsed = time.perf_counter() - overall_start
+    if elapsed < 1.8:
+        time.sleep(1.8 - elapsed)
+
+    notifications: List[Tuple[str, str]] = []
+
+    route = determine_route(prompt, winner_prov)
+    start_time = time.time()
+    input_hash = hash_text(prompt)
+    in_toks = est_tokens(prompt)
+    result_text = ""
+    latency_ms = 0
+    live_latency_ms: Optional[int] = None
+
+    live_possible = not demo_mode and LIVE_CAPABLE.get(winner_prov, False)
+    if winner_prov == "Llama":
+        live_possible = False
+
+    if demo_mode:
+        result_text = generate_stubbed_response(winner_prov, route, prompt)
+        latency_ms = int((time.time() - start_time) * 1000)
+        notifications.append(("info", "Simulated mode: showing routed council summary."))
+    elif not live_possible:
+        notifications.append(("info", "Live mode skipped: keys missing or provider not supported. Showing simulated result."))
+        result_text = generate_stubbed_response(winner_prov, route, prompt)
+        latency_ms = int((time.time() - start_time) * 1000)
+    else:
+        try:
+            with st.spinner(f"Running live on {winner_prov}…"):
+                live_start = time.perf_counter()
+                result_text = live_generate(winner_prov, winner_model, prompt, 0.2)
+                live_latency_ms = int((time.perf_counter() - live_start) * 1000)
+            latency_ms = int((time.time() - start_time) * 1000)
+            notifications.append(("success", f"Live result in {live_latency_ms:.0f} ms"))
+        except Exception as exc:  # Graceful failure
+            error_msg = f"Live call failed: {exc}"
+            notifications.append(("error", error_msg))
+            result_text = error_msg
+            latency_ms = int((time.time() - start_time) * 1000)
+
+    out_toks = est_tokens(result_text)
+    cost = est_cost(route, in_toks, out_toks)
+    log_decision(
+        {
+            "ts_iso": dt.datetime.utcnow().isoformat() + "Z",
+            "input_hash": input_hash,
+            "route": route,
+            "latency_ms": latency_ms,
+            "in_tokens": in_toks,
+            "out_tokens": out_toks,
+            "est_cost_usd": cost,
+            "notes": sidebar_notes,
+        }
+    )
+
+    alternates = council[1:4]
+
+    return {
+        "prompt": prompt,
+        "winner": {"provider": winner_prov, "model": winner_model},
+        "route": route,
+        "council": council,
+        "result_text": result_text,
+        "latency_ms": latency_ms,
+        "live_latency_ms": live_latency_ms,
+        "in_tokens": in_toks,
+        "out_tokens": out_toks,
+        "cost": cost,
+        "demo_mode": demo_mode,
+        "live_possible": live_possible,
+        "was_live": live_latency_ms is not None,
+        "notifications": notifications,
+        "notes": sidebar_notes,
+        "timestamp": dt.datetime.utcnow().isoformat() + "Z",
+        "alternates": alternates,
+    }
+
+
+def render_run(run: Dict[str, Any]) -> None:
+    if not run:
+        return
+
+    st.markdown("#### Decision Summary")
+    metrics_cols = st.columns(4)
+    metrics_cols[0].metric("Routing", run["route"])
+    metrics_cols[1].metric("Latency", f"{run['latency_ms']} ms")
+    metrics_cols[2].metric(
+        "Tokens",
+        f"{run['in_tokens']} in / {run['out_tokens']} out",
+    )
+    metrics_cols[3].metric("Est. cost", f"${run['cost']:.4f}")
+
+    note_bits = []
+    if run.get("notes"):
+        note_bits.append(f"Note: {run['notes']}")
+    if run.get("timestamp"):
+        note_bits.append(f"Logged {run['timestamp']}")
+    if note_bits:
+        st.caption(" · ".join(note_bits))
+
+    for level, message in run.get("notifications", []):
+        if level == "info":
+            st.info(message)
+        elif level == "success":
+            st.success(message)
+        elif level == "warning":
+            st.warning(message)
+        elif level == "error":
+            st.error(message)
+        else:
+            st.write(message)
+
+    winner = run.get("winner", {})
+    winner_prov = winner.get("provider", "")
+    winner_model = winner.get("model", "")
+
+    st.markdown("### Best Pick")
+    if winner_prov and winner_model:
+        st.markdown('<span class="badge pick">Best Pick</span>', unsafe_allow_html=True)
+        st.markdown(f"**{winner_prov} · {winner_model}**")
+        st.markdown(provider_badge(winner_prov, winner_model), unsafe_allow_html=True)
+        st.markdown(logo_img_html(winner_prov), unsafe_allow_html=True)
+
+    feature_chips = ["Speed", "Reasoning", "Budget-friendly"]
+    if run["route"] == "FAST":
+        feature_chips = ["Latency saver", "Budget friendly", "Single-shot"]
+    else:
+        feature_chips = ["Deep reasoning", "High fidelity", "Context stitch"]
+
+    st.markdown(
+        "".join([f'<span class="chip chip-primary">{c}</span>' for c in feature_chips]),
+        unsafe_allow_html=True,
+    )
+
+    had_error = any(level == "error" for level, _ in run.get("notifications", []))
+    if run.get("was_live") and not had_error:
+        render_live_card(run["result_text"])
+    elif had_error:
+        st.error(run["result_text"])
+    else:
+        render_simulated_card(winner_prov or "Council", run["result_text"])
+
+    st.divider()
+
+    st.markdown("#### Council Ranking")
+    council = run.get("council", [])
+    if council:
+        council_cols = st.columns(2)
+        for idx, (prov, score, quip) in enumerate(council):
+            with council_cols[idx % 2]:
+                st.markdown(logo_img_html(prov), unsafe_allow_html=True)
+                st.markdown(f"**{prov}** · score {score}")
+                st.caption(quip)
+    else:
+        st.caption("No council data available.")
+
+    alternates = run.get("alternates", [])
+    if alternates:
+        st.divider()
+        st.markdown("#### Alternate Takes")
+        alt_cols = st.columns(len(alternates))
+        for idx, (prov, _score, quip) in enumerate(alternates):
+            with alt_cols[idx]:
+                st.markdown(f'<span class="badge alt">{prov}</span>', unsafe_allow_html=True)
+                st.markdown(logo_img_html(prov), unsafe_allow_html=True)
+                st.caption(quip)
+                btn_key = f"alt-{hash_text(run['prompt'])[:4]}-{prov}"
+                if st.button(f"Preview {prov}", key=btn_key):
+                    preview = textwrap.dedent(
+                        f"""
+                        **{prov} (simulated take)**  
+                        - Signal: {quip}  
+                        - Would highlight alternate POV and give a second draft.
+                        """
+                    )
+                    st.session_state["alt_preview"] = preview
+
+    if st.session_state.get("alt_preview"):
+        st.markdown(st.session_state["alt_preview"])
+
+
 # =========================
 # UI
 # =========================
@@ -640,6 +833,19 @@ st.caption("Type once. Watch the LLM council confer. Get one **Best Pick** and s
 st.session_state.setdefault("alt_preview", "")
 demo_mode = not live
 
+ready_keys = [name for name, ok in LIVE_CAPABLE.items() if ok]
+missing_keys = [name for name, ok in LIVE_CAPABLE.items() if not ok]
+
+if demo_mode:
+    st.info("Simulated mode active. Toggle LIVE mode in the sidebar once keys are configured.")
+else:
+    live_msg = "Live mode on."
+    if ready_keys:
+        live_msg += " Keys ready for " + ", ".join(ready_keys) + "."
+    if missing_keys:
+        live_msg += " Add keys for " + ", ".join(missing_keys) + " to expand coverage."
+    st.success(live_msg)
+
 prompt = st.text_area(
     "Your prompt",
     "In 5 bullets, pitch RAD AI (Rational Automation Design): problem, solution, why now, traction, ask.",
@@ -648,133 +854,33 @@ prompt = st.text_area(
 
 go = st.button("Search all models")
 
+results_container = st.container()
+
 if go:
     st.session_state["alt_preview"] = ""
-    overlay_models = [prov for prov, _model, _attr in MODELS]
-    overlay_duration = 2.4
-    overall_start = time.perf_counter()
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        vote_future = executor.submit(heuristic_vote, prompt)
-        show_loading_council(overlay_models, seconds=overlay_duration)
-        winner_prov, winner_model, council = vote_future.result()
+    st.session_state["last_run"] = run_council_decision(prompt, demo_mode, sidebar_notes)
 
-    elapsed = time.perf_counter() - overall_start
-    if elapsed < 1.8:
-        time.sleep(1.8 - elapsed)
+run_data = st.session_state.get("last_run")
 
-    st.markdown("#### 🤝 LLM Council")
-    for prov, score, quip in council:
-        logo_html = logo_img_html(prov)
-        bubble_html = (
-            f'<div class="bubble">'
-            f'<div><b>{prov}</b> · <span class="sm">score {score}</span></div>'
-            f'<div class="sm">{quip}</div>'
-            f"</div>"
-        )
-        row_html = f'<div class="row fade">{logo_html}{bubble_html}</div>'
-        st.markdown(row_html, unsafe_allow_html=True)
-        time.sleep(0.12)
-
-    st.divider()
-
-    st.markdown('<span class="badge pick">Best Pick</span>', unsafe_allow_html=True)
-    st.markdown(f"### {winner_prov} · **{winner_model}**")
-    st.markdown(logo_img_html(winner_prov), unsafe_allow_html=True)
-
-    feature_chips = ["Speed", "Reasoning", "Budget-friendly"]
-    st.markdown(
-        "".join([f'<span class="chip chip-primary">{c}</span>' for c in feature_chips]),
-        unsafe_allow_html=True,
-    )
-
-    route = determine_route(prompt, winner_prov)
-    st.caption(f"Routing decision: **{route}**")
-    start_time = time.time()
-    input_hash = hash_text(prompt)
-    in_toks = est_tokens(prompt)
-    result_text = ""
-    latency_ms = 0
-
-    live_possible = not demo_mode and LIVE_CAPABLE.get(winner_prov, False)
-    if winner_prov == "Llama":
-        live_possible = False  # Llama entry is simulated-only
-
-    if not demo_mode and not live_possible:
-        st.info("Live mode skipped: keys missing or provider not supported. Showing simulated result.")
-
-    if demo_mode or not live_possible:
-        result_text = generate_stubbed_response(winner_prov, route, prompt)
-        render_simulated_card(winner_prov, result_text)
-        latency_ms = int((time.time() - start_time) * 1000)
+with results_container:
+    if run_data:
+        render_run(run_data)
     else:
-        try:
-            with st.spinner(f"Running live on {winner_prov}…"):
-                live_start = time.perf_counter()
-                result_text = live_generate(winner_prov, winner_model, prompt, 0.2)
-                live_latency_ms = int((time.perf_counter() - live_start) * 1000)
-            latency_ms = int((time.time() - start_time) * 1000)
-            st.success(f"Live result in {live_latency_ms:.0f} ms")
-            render_live_card(result_text)
-        except Exception as exc:  # Graceful failure
-            error_msg = f"Live call failed: {exc}"
-            st.error(error_msg)
-            result_text = error_msg
-            latency_ms = int((time.time() - start_time) * 1000)
-
-    try:
-        st.markdown(provider_badge(winner_prov, winner_model), unsafe_allow_html=True)
-    except NameError:
-        st.markdown(provider_badge("openai", "gpt-4o-mini"), unsafe_allow_html=True)
-
-    out_toks = est_tokens(result_text)
-    cost = est_cost(route, in_toks, out_toks)
-    log_decision(
-        {
-            "ts_iso": dt.datetime.utcnow().isoformat() + "Z",
-            "input_hash": input_hash,
-            "route": route,
-            "latency_ms": latency_ms,
-            "in_tokens": in_toks,
-            "out_tokens": out_toks,
-            "est_cost_usd": cost,
-            "notes": sidebar_notes,
-        }
-    )
-
-    st.markdown("#### ✨ Good Alternates")
-    alts = council[1:4]
-    cols = st.columns(len(alts)) if alts else []
-    for idx, (prov, _score, quip) in enumerate(alts):
-        with cols[idx]:
-            st.markdown(f'<span class="badge alt">{prov}</span>', unsafe_allow_html=True)
-            st.markdown(logo_img_html(prov), unsafe_allow_html=True)
-            st.caption(quip)
-            if st.button(f"Preview {prov}", key=f"alt-{prov}"):
-                preview = textwrap.dedent(
-                    f"""
-                    **{prov} (simulated take)**  
-                    - Signal: {quip}  
-                    - Would highlight alternate POV and give a second draft.
-                    """
-                )
-                st.session_state["alt_preview"] = preview
-
-    if st.session_state.get("alt_preview"):
-        st.markdown(st.session_state["alt_preview"])
+        st.caption("Run a prompt to watch the council collaborate.")
 
 st.divider()
-st.caption("Recent routing decisions")
-rows = load_recent(50)
-if rows:
-    st.dataframe(list(reversed(rows)), use_container_width=True)
-else:
-    st.info("No logs yet. Run a few queries.")
 
-st.divider()
-st.markdown("##### Connection checklist")
-st.write("- 🔑 OpenAI: `OPENAI_API_KEY` (paid)")
-st.write("- 🆓 Grok: `GROK_API_KEY` (dev tier; legacy `GROQ_API_KEY` also works)")
-st.write("- 🆓 Together: `TOGETHER_API_KEY` (llama-3.3-70b free endpoint)")
-st.write("- 🆓 Gemini: `GEMINI_API_KEY` (free tier)")
-st.caption("Simulated Mode requires no keys. Live Mode only runs if a key exists for the chosen provider.")
-st.caption("Logos © their respective owners; used here for product identification in a demo UI.")
+with st.expander("Recent routing decisions", expanded=False):
+    rows = load_recent(50)
+    if rows:
+        st.dataframe(list(reversed(rows)), use_container_width=True)
+    else:
+        st.info("No logs yet. Run a few queries.")
+
+with st.expander("Connection checklist", expanded=False):
+    st.write("- 🔑 OpenAI: `OPENAI_API_KEY` (paid)")
+    st.write("- 🆓 Grok: `GROK_API_KEY` (dev tier; legacy `GROQ_API_KEY` also works)")
+    st.write("- 🆓 Together: `TOGETHER_API_KEY` (llama-3.3-70b free endpoint)")
+    st.write("- 🆓 Gemini: `GEMINI_API_KEY` (free tier)")
+    st.caption("Simulated Mode requires no keys. Live Mode only runs if a key exists for the chosen provider.")
+    st.caption("Logos © their respective owners; used here for product identification in a demo UI.")
